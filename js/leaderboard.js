@@ -54,22 +54,38 @@ export async function flushScores() {
       last = await call('/v1/skor', { method: 'POST', body: JSON.stringify({ id, secret, name: getProfile().name, ...item }) });
     } catch (e) {
       if (!e.status || e.status >= 500) break; // bağlantı ya da sunucu hatası: sonra tekrar dene
+      if (e.status === 409) {
+        // Ad başka bir oyuncuda: skorlar sırada bekler, oyuncu yeni ad seçince gönderilir.
+        updateProfile({ boardNameTaken: true });
+        break;
+      }
     }
     updateProfile({ scoreQueue: (getProfile().scoreQueue || []).filter((q) => q.day !== item.day) });
   }
   return last;
 }
 
-// Oyuncu adını sunucuda günceller. Ad reddedilirse hata mesajı döner.
-export async function syncName() {
-  if (!leaderboardReady() || getProfile().leaderboard !== true) return null;
+// Adı skor tablosunda bu oyuncuya ayırır (ilk kayıtta oyuncuyu da oluşturur).
+// Sonuç: { ok: true } | { ok: false, taken, offline, error }
+export async function claimName(name) {
+  if (!leaderboardReady()) return { ok: false, offline: true, error: 'Skor tablosu hazır değil' };
   const { id, secret } = identity();
   try {
-    await call('/v1/oyuncu', { method: 'POST', body: JSON.stringify({ id, secret, name: getProfile().name }) });
-    return null;
+    await call('/v1/oyuncu', { method: 'POST', body: JSON.stringify({ id, secret, name }) });
+    updateProfile({ boardNameTaken: false });
+    return { ok: true };
   } catch (e) {
-    return e.status && e.status < 500 ? e.message : null;
+    if (!e.status || e.status >= 500) return { ok: false, offline: true, error: 'Skor tablosuna ulaşılamadı. İnternet bağlantını kontrol et.' };
+    if (e.status === 409) updateProfile({ boardNameTaken: true });
+    return { ok: false, taken: e.status === 409, error: e.message };
   }
+}
+
+// Mevcut adı sunucuyla eşitler. Ad reddedilirse hata mesajı, bağlantı yoksa null döner.
+export async function syncName() {
+  if (!leaderboardReady() || getProfile().leaderboard !== true) return null;
+  const r = await claimName(getProfile().name);
+  return r.ok || r.offline ? null : r.error;
 }
 
 export async function fetchBoard(period) {

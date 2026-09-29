@@ -13,7 +13,7 @@ import {
   FREEZE_COST, FREEZE_MAX, REMINDER_TIMES, emptyLengthStats, archiveAccess, openArchiveDay,
 } from './progress.js';
 import { remindersSupported, requestReminderPermission, syncReminders } from './notifications.js';
-import { leaderboardReady, submitDaily, flushScores, syncName, fetchBoard } from './leaderboard.js';
+import { leaderboardReady, submitDaily, flushScores, claimName, fetchBoard } from './leaderboard.js';
 import { PERIODS, PERIOD_LABELS } from './leaderboard-rules.js';
 import {
   getProfile, updateProfile, resetProfile, quests, currentStreak, recordRound, countGame,
@@ -130,7 +130,8 @@ function dialog({ title, body, actions }) {
 
 // Ad giriş penceresi. required ise kapatılamaz; ad girilmeden uygulama kullanılamaz.
 // Onaylanırsa temizlenmiş adı, vazgeçilirse null döndürür.
-function nameDialog({ title, body, initial = '', confirmLabel = 'Kaydet', required = false }) {
+// check verilirse ad onaylanmadan önce ona sorulur; hata mesajı dönerse pencere açık kalır.
+function nameDialog({ title, body, initial = '', confirmLabel = 'Kaydet', required = false, check = null }) {
   return new Promise((resolve) => {
     const prev = document.activeElement;
     const wrap = document.createElement('div');
@@ -159,10 +160,18 @@ function nameDialog({ title, body, initial = '', confirmLabel = 'Kaydet', requir
     const onKey = (e) => {
       if (e.key === 'Escape' && !required) { e.stopPropagation(); close(null); }
     };
+    const submit = form.querySelector('[type=submit]');
     input.addEventListener('input', () => { error.textContent = ''; });
-    form.addEventListener('submit', (e) => {
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const problem = validateName(input.value);
+      if (submit.disabled) return;
+      let problem = validateName(input.value);
+      if (!problem && check) {
+        submit.disabled = true;
+        problem = await check(cleanName(input.value));
+        submit.disabled = false;
+        if (!wrap.isConnected) return;
+      }
       if (problem) {
         error.textContent = problem;
         feedback.invalid();
@@ -203,13 +212,22 @@ async function changeName() {
   const p = getProfile();
   const st = nameChangeStatus(p);
   if (!st.free && !st.canPay) return;
+  // Skor tablosundaysa yeni ad önce sunucuda ayrılır; alınmışsa coin harcanmadan pencere açık kalır.
+  const onBoard = leaderboardReady() && p.leaderboard === true;
   const name = await nameDialog({
     title: 'Adını değiştir',
-    body: st.free
+    body: (st.free
       ? 'Yeni adını yaz. Bu değişiklik ücretsiz.'
-      : `Yeni adını yaz. Bu değişiklik <b>${fmt(st.cost)} coin</b> tutar. Bakiyen: ${fmt(p.coins)} coin.`,
+      : `Yeni adını yaz. Bu değişiklik <b>${fmt(st.cost)} coin</b> tutar. Bakiyen: ${fmt(p.coins)} coin.`)
+      + (onBoard ? ' Skor tablosunda her ad tek bir oyuncuya aittir.' : ''),
     initial: p.name,
     confirmLabel: st.free ? 'Kaydet' : `${fmt(st.cost)} coin öde ve kaydet`,
+    check: onBoard ? async (n) => {
+      if (n === p.name) return null;
+      const r = await claimName(n);
+      if (r.offline) return 'Skor tablosundaki adını değiştirmek için internet bağlantısı gerekiyor.';
+      return r.ok ? null : r.error;
+    } : null,
   });
   if (!name) return;
   if (name === p.name) return toast('Ad aynı kaldı');
@@ -221,8 +239,52 @@ async function changeName() {
   });
   feedback.hint();
   toast(st.free ? 'Adın değişti' : `Adın değişti, ${fmt(st.cost)} coin harcandı`);
-  syncName().then((problem) => problem && toast(`Skor tablosu: ${problem}`, 3200));
+  if (onBoard) flushScores();
   render();
+}
+
+// Skor tablosunda kullanılan ad başka bir oyuncudaysa yeni ad seçtirir. Bu değişiklik ücretsizdir
+// ve ad değiştirme sayacını etkilemez. Ad sunucuda ayrılırsa true döner.
+async function pickBoardName(reason) {
+  const name = await nameDialog({
+    title: 'Başka bir ad seç',
+    body: `${esc(reason || 'Bu ad skor tablosunda başka bir oyuncu tarafından kullanılıyor.')} Skor tablosunda her ad tek bir oyuncuya aittir.`,
+    initial: getProfile().name,
+    confirmLabel: 'Bu adı kullan',
+    check: async (n) => {
+      const r = await claimName(n);
+      return r.ok ? null : r.error;
+    },
+  });
+  if (!name) return false;
+  updateProfile({ name });
+  toast(`Skor tablosunda artık ${name} adıyla görüneceksin`, 2800);
+  return true;
+}
+
+// Skor tablosuna katılır: ad sunucuda ayrılır, alınmışsa yeni ad istenir.
+// Oyuncu ad seçmekten vazgeçerse katılım gerçekleşmez. Bağlantı yoksa katılım kaydedilir,
+// skorlar bağlantı gelince gönderilir.
+async function joinBoard() {
+  updateProfile({ leaderboard: true });
+  const r = await claimName(getProfile().name);
+  if (r.ok || r.offline) return true;
+  if (await pickBoardName(r.taken ? null : r.error)) return true;
+  updateProfile({ leaderboard: false, boardNameTaken: false });
+  toast('Skor tablosuna katılmadın');
+  return false;
+}
+
+// Ad çakışması yüzünden bekleyen skorlar için uyarı kartı.
+const nameTakenCard = () => (getProfile().leaderboard === true && getProfile().boardNameTaken ? `
+  <div class="archive-notice">${icon('leaderboard')}<div><strong>Adın skor tablosunda başka bir oyuncuda</strong><small>Yeni bir ad seçene kadar skorların gönderilmez, sırada bekler.</small></div>
+    <button class="btn btn-primary" id="fix-board-name">Ad seç</button></div>` : '');
+
+function bindNameTaken() {
+  app.querySelector('#fix-board-name')?.addEventListener('click', async () => {
+    if (await pickBoardName()) await flushScores();
+    render();
+  });
 }
 
 // Klasik mod: yarım kalan oyun varsa önce sorar.
@@ -1141,11 +1203,15 @@ async function offerLeaderboard(r) {
       ],
     });
     if (yes === null) return;
-    updateProfile({ leaderboard: yes });
-    if (!yes) return;
+    if (!yes) return updateProfile({ leaderboard: false });
+    if (!(await joinBoard())) return;
   }
   if (getProfile().leaderboard !== true) return;
-  const res = await submitDaily(payload);
+  let res = await submitDaily(payload);
+  if (!res && getProfile().boardNameTaken) {
+    if (!(await pickBoardName())) return toast('Skorun, yeni bir ad seçene kadar sırada bekleyecek', 3000);
+    res = await flushScores();
+  }
   if (res && !res.duplicate) toast(`Skor tablosuna eklendi: +${fmt(res.points)} puan`, 2600);
   else if (!res) toast('Skor şimdi gönderilemedi, bağlantı gelince gönderilecek', 2600);
 }
@@ -1301,12 +1367,13 @@ async function renderLeaderboard() {
       renderLeaderboard();
     }));
     app.querySelector('#join-board')?.addEventListener('click', async () => {
-      updateProfile({ leaderboard: true });
-      const problem = await syncName();
-      toast(problem ? `Skor tablosu: ${problem}` : 'Skor tablosuna katıldın. Günün kelimesini çözünce listede görüneceksin.', 3200);
-      flushScores();
+      if (await joinBoard()) {
+        toast('Skor tablosuna katıldın. Günün kelimesini çözünce listede görüneceksin.', 3200);
+        await flushScores();
+      }
       render();
     });
+    bindNameTaken();
   };
   if (!leaderboardReady()) {
     app.innerHTML = shell(`<div class="card"><p class="muted" style="margin:0">Skor tablosu henüz hazır değil.</p></div>`);
@@ -1344,6 +1411,7 @@ async function renderLeaderboard() {
     : `<p class="muted" style="margin:0;text-align:center">${boardPeriod === 'gun' ? 'Bugün henüz kimse skor göndermedi. İlk sen ol!' : 'Bu dönemde henüz skor yok.'}</p>`;
   app.innerHTML = shell(`
     ${joinCard}
+    ${nameTakenCard()}
     <section class="card board-card">
       <div class="section-head"><span class="small muted">${fmt(data.players)} OYUNCU</span>${data.me ? `<span class="badge primary">Sıran: ${data.me.rank}</span>` : ''}</div>
       ${rows}
@@ -1461,6 +1529,7 @@ function renderProfile() {
       </div>
       <p class="muted" style="margin:0">${nameHint}</p>
     </section>
+    ${nameTakenCard()}
     <section class="card" style="display:flex;flex-direction:column;gap:12px">
       <h2 style="font-size:18px">Mağaza</h2>
       <div class="shop-row">
@@ -1516,6 +1585,7 @@ function renderProfile() {
 
   bindCommon();
   app.querySelector('#change-name').addEventListener('click', changeName);
+  bindNameTaken();
   for (const [id, key] of [['sound-toggle', 'sound'], ['haptics-toggle', 'haptics'], ['hard-toggle', 'hardMode']]) {
     app.querySelector(`#${id}`).addEventListener('click', (e) => {
       const on = !getProfile()[key];
@@ -1530,12 +1600,14 @@ function renderProfile() {
     updateProfile({ leaderboard: on });
     e.currentTarget.setAttribute('aria-checked', String(on));
     if (on) {
-      const problem = await syncName();
-      if (problem) toast(`Skor tablosu: ${problem}`, 3200);
-      else toast('Günün kelimesi skorların artık skor tablosunda');
-      flushScores();
+      if (await joinBoard()) {
+        toast('Günün kelimesi skorların artık skor tablosunda');
+        await flushScores();
+      }
+      render();
     } else {
       toast('Yeni skorların artık gönderilmeyecek');
+      render();
     }
   });
   app.querySelector('#reminder-toggle')?.addEventListener('click', async () => {
@@ -1567,7 +1639,7 @@ function renderProfile() {
     render();
   }));
   app.querySelector('#reset').addEventListener('click', () => {
-    if (!confirm('XP, coin, seri ve istatistiklerin silinecek. Emin misin?')) return;
+    if (!confirm('XP, coin, seri ve istatistiklerin silinecek. Skor tablosuna daha önce gönderdiğin skorlar silinmez. Emin misin?')) return;
     resetProfile();
     applyTheme('system');
     toast('Veriler sıfırlandı');

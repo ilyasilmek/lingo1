@@ -37,7 +37,19 @@ export function publicNameProblem(raw) {
   const n = cleanName(raw).toLocaleLowerCase('tr-TR');
   const words = n.split(/[\s._-]+/);
   if (BLOCKED.some((b) => words.includes(b) || (b.length > 3 && n.includes(b)))) return 'Bu ad skor tablosunda kullanılamaz.';
+  if ([...nameKey(raw)].length < 2) return 'Ad en az 2 harf ya da rakam içermeli.';
   return null;
+}
+
+// Adların benzersizliği bu anahtarla denetlenir: büyük/küçük harf, Türkçe harfler (ı/i, ş/s...),
+// şapkalar ve boşluk, nokta, tire, alt çizgi fark yaratmaz. "İlyas", "ilyas" ve "i.lyas" aynı addır.
+export function nameKey(raw) {
+  return cleanName(raw)
+    .toLocaleLowerCase('tr-TR')
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/ı/g, 'i')
+    .replace(/[\s._-]/g, '');
 }
 
 // Günlük oyun gönderimini doğrular. Geçerliyse { ok: true, won, attempts, points },

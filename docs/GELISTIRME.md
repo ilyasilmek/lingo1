@@ -102,6 +102,8 @@ Alternatif olarak `android/keystore.properties.example` dosyasını `android/key
 - `server/src/index.js`: istekleri karşılar. Uç noktalar: `POST /v1/oyuncu`, `POST /v1/skor`, `GET /v1/tablo?donem=gun|hafta|ay|tum`, `POST /v1/gizle` (yönetici).
 - `server/migrations/`: veritabanı şeması.
 - `js/leaderboard-rules.js`: uygulamayla ortak kurallar. Sunucu, telefondan gelen puana güvenmez; günün kelimesini kendisi hesaplar, tahminleri doğrular ve puanı kendisi verir. Her oyuncu her gün için tek skor gönderebilir, tarih Türkiye saatine göre alınır.
+- Oyuncu adları benzersizdir. `nameKey()` adı karşılaştırma anahtarına çevirir (küçük harf, `ı/i`, `ş/s` gibi Türkçe harfler ve şapkalar sadeleşir, boşluk, nokta, tire ve alt çizgi atılır); `players.name_key` üzerinde tekil indeks vardır. Alınmış bir adla kayıt ya da ad değişikliği 409 döner, uygulama da oyuncudan başka bir ad ister. `0003_benzersiz_ad.sql` taşıması eski çift kayıtlardan en çok oyunu olanı bırakır, diğerlerini anahtarsız bırakıp gizler; bu oyuncular yeni bir ad seçince yeniden görünür.
+- Profildeki "Tüm verileri sıfırla" oyun verilerini siler ama skor tablosu kimliğini (`playerId`, `playerSecret`) korur. Sunucudaki skorlar silinmez.
 - Oyuncu kimliği cihazda üretilen rastgele bir kimlik ve gizli anahtardan oluşur; sunucu yalnızca anahtarın SHA-256 özetini saklar.
 
 ### Kurulum

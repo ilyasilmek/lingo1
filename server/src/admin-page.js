@@ -88,11 +88,11 @@ export const ADMIN_HTML = `<!doctype html>
       const data = await api('/v1/yonetim/oyuncular?ara=' + encodeURIComponent(q));
       $('rows').innerHTML = data.players.map((p) => \`
         <tr class="\${p.hidden ? 'hidden' : ''}">
-          <td><strong>\${esc(p.name)}</strong> \${p.hidden ? '<span class="tag">Gizli</span>' : ''}<div class="id">\${p.id}</div></td>
+          <td><strong>\${esc(p.name)}</strong> \${p.clash ? '<span class="tag">Ad çakışması, yeni ad bekleniyor</span>' : p.hidden ? '<span class="tag">Gizli</span>' : ''}<div class="id">\${p.id}</div></td>
           <td class="num">\${p.games}</td>
           <td class="num">\${p.points}</td>
           <td>\${p.last_day || '-'}</td>
-          <td>\${p.hidden
+          <td>\${p.clash ? '' : p.hidden
             ? \`<button class="show" data-id="\${p.id}" data-hidden="false">Göster</button>\`
             : \`<button class="hide" data-id="\${p.id}" data-hidden="true">Gizle</button>\`}</td>
         </tr>\`).join('') || '<tr><td colspan="5">Oyuncu bulunamadı.</td></tr>';

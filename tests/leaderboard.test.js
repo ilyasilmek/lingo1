@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  dailyAnswerFor, leaderboardPoints, checkDailySubmission, periodStart, publicNameProblem, isPlayerId, isSecret,
+  dailyAnswerFor, leaderboardPoints, checkDailySubmission, periodStart, publicNameProblem, isPlayerId, isSecret, nameKey,
 } from '../js/leaderboard-rules.js';
 import { seededShuffle, dailyIndex } from '../js/game.js';
 import { parseDay } from '../js/progress.js';
@@ -69,4 +69,19 @@ test('herkese açık ad süzgeci ve kimlik biçimi', () => {
   assert.equal(isPlayerId('0123456789abcdef0123456789abcdef'), true);
   assert.equal(isPlayerId('xyz'), false);
   assert.equal(isSecret('a'.repeat(64)), true);
+});
+
+test('nameKey: aynı sayılan adlar aynı anahtarı verir', () => {
+  const same = ['ilyas', 'İlyas', 'ILYAS', 'ılyas', 'i.lyas', 'il yas', 'Il_Yas', '  ilyas  '];
+  for (const n of same) assert.equal(nameKey(n), 'ilyas', n);
+  assert.equal(nameKey('Şükrü Çağ'), nameKey('sukru cag'));
+  assert.equal(nameKey('Gökçe'), 'gokce');
+  assert.notEqual(nameKey('ilyas1'), nameKey('ilyas'));
+  assert.notEqual(nameKey('Zeynep'), nameKey('Menna'));
+});
+
+test('publicNameProblem: yalnızca işaretten oluşan ad reddedilir', () => {
+  assert.ok(publicNameProblem('..'));
+  assert.ok(publicNameProblem('a-'));
+  assert.equal(publicNameProblem('Ay'), null);
 });

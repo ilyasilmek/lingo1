@@ -45,7 +45,7 @@ Takıldığında ampul simgesine basıp bir harf açtırabilirsin. İpucu 4. tah
 
 **Uzunluğa göre istatistik.** İstatistikler sayfasında sonuçlarını 4'ten 9'a her kelime uzunluğu için ayrı ayrı görebilirsin.
 
-**Skor tablosu.** Günün kelimesini bitirdiğinde, istersen puanın diğer oyuncuların da gördüğü skor tablosuna eklenir. Bugün, bu hafta, bu ay ve tüm zamanlar listeleri var; haftalık, aylık ve tüm zamanlar puanı günlük puanların toplamıdır. Tabloda yalnızca oyuncu adın ve puanın görünür. Katılmak isteğe bağlıdır ve Profil sayfasından kapatılabilir. Puanı telefon değil sunucu hesaplar, bu yüzden sahte skor gönderilemez.
+**Skor tablosu.** Günün kelimesini bitirdiğinde, istersen puanın diğer oyuncuların da gördüğü skor tablosuna eklenir. Bugün, bu hafta, bu ay ve tüm zamanlar listeleri var; haftalık, aylık ve tüm zamanlar puanı günlük puanların toplamıdır. Tabloda yalnızca oyuncu adın ve puanın görünür. Her ad tek bir oyuncuya aittir: "İlyas", "ilyas" ya da "ılyas" aynı ad sayılır ve başkası kullanıyorsa senden farklı bir ad seçmen istenir. Katılmak isteğe bağlıdır ve Profil sayfasından kapatılabilir. Verileri sıfırlamak skor tablosuna gönderilmiş skorları silmez. Puanı telefon değil sunucu hesaplar, bu yüzden sahte skor gönderilemez.
 
 ## Uygulama nasıl çalışıyor
 

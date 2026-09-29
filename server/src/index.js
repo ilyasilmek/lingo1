@@ -5,7 +5,7 @@ import validText from '../../data/valid-5.txt';
 import { cleanName } from '../../js/game.js';
 import { ADMIN_HTML } from './admin-page.js';
 import {
-  PERIODS, checkDailySubmission, periodStart, publicNameProblem, isPlayerId, isSecret,
+  PERIODS, checkDailySubmission, periodStart, publicNameProblem, isPlayerId, isSecret, nameKey,
 } from '../../js/leaderboard-rules.js';
 
 const ANSWERS = answersText.split('\n').filter(Boolean);
@@ -45,11 +45,21 @@ async function readJson(request) {
   }
 }
 
+const NAME_TAKEN = 'Bu ad başka bir oyuncu tarafından kullanılıyor. Başka bir ad seç.';
+
+// Adın başka bir oyuncuda olup olmadığına bakar (selfId hariç).
+async function nameTaken(env, key, selfId) {
+  const row = await env.DB.prepare('SELECT id FROM players WHERE name_key = ? AND id != ?').bind(key, selfId).first();
+  return !!row;
+}
+
+const isUniqueError = (e) => /UNIQUE constraint failed/i.test(String(e?.message || e));
+
 // Oyuncuyu doğrular; yoksa ve create true ise oluşturur.
 async function authPlayer(env, { id, secret, name }, { create = false } = {}) {
   if (!isPlayerId(id) || !isSecret(secret)) return { error: 'Geçersiz oyuncu kimliği', status: 401 };
   const hash = await sha256(secret);
-  const row = await env.DB.prepare('SELECT id, secret_hash, name, hidden FROM players WHERE id = ?').bind(id).first();
+  const row = await env.DB.prepare('SELECT id, secret_hash, name, name_key, hidden FROM players WHERE id = ?').bind(id).first();
   if (row) {
     if (row.secret_hash !== hash) return { error: 'Oyuncu doğrulanamadı', status: 401 };
     return { player: row };
@@ -57,20 +67,40 @@ async function authPlayer(env, { id, secret, name }, { create = false } = {}) {
   if (!create) return { error: 'Oyuncu bulunamadı', status: 404 };
   const problem = publicNameProblem(name);
   if (problem) return { error: problem, status: 400 };
-  await env.DB.prepare('INSERT INTO players (id, secret_hash, name) VALUES (?, ?, ?)').bind(id, hash, cleanName(name)).run();
-  return { player: { id, name: cleanName(name), hidden: 0 }, created: true };
+  const key = nameKey(name);
+  if (await nameTaken(env, key, id)) return { error: NAME_TAKEN, status: 409 };
+  try {
+    await env.DB.prepare('INSERT INTO players (id, secret_hash, name, name_key) VALUES (?, ?, ?, ?)').bind(id, hash, cleanName(name), key).run();
+  } catch (e) {
+    if (isUniqueError(e)) return { error: NAME_TAKEN, status: 409 };
+    throw e;
+  }
+  return { player: { id, name: cleanName(name), name_key: key, hidden: 0 }, created: true };
 }
 
-// POST /v1/oyuncu  { id, secret, name } -> oyuncuyu kaydeder ya da adını günceller
+// POST /v1/oyuncu  { id, secret, name } -> oyuncuyu kaydeder ya da adını günceller.
+// Ad başka bir oyuncudaysa 409 döner; ad yalnızca boştaysa alınır.
 async function upsertPlayer(request, env) {
   const body = await readJson(request);
   if (!body) return fail('Geçersiz istek');
   const auth = await authPlayer(env, body, { create: true });
   if (auth.error) return fail(auth.error, auth.status);
-  if (!auth.created && body.name !== undefined && cleanName(body.name) !== auth.player.name) {
-    const problem = publicNameProblem(body.name);
-    if (problem) return fail(problem);
-    await env.DB.prepare("UPDATE players SET name = ?, updated_at = datetime('now') WHERE id = ?").bind(cleanName(body.name), body.id).run();
+  if (auth.created || body.name === undefined) return json({ ok: true });
+  const p = auth.player;
+  const name = cleanName(body.name);
+  const key = nameKey(body.name);
+  // Ad aynıysa ve anahtarı zaten bu oyuncudaysa yapılacak bir şey yok.
+  if (name === p.name && p.name_key === key) return json({ ok: true });
+  const problem = publicNameProblem(body.name);
+  if (problem) return fail(problem);
+  if (await nameTaken(env, key, body.id)) return fail(NAME_TAKEN, 409);
+  try {
+    // Aynı ad çakışması yüzünden gizlenen oyuncu, boş bir ad alınca yeniden görünür.
+    await env.DB.prepare(`UPDATE players SET name = ?, name_key = ?, hidden = CASE WHEN name_key IS NULL THEN 0 ELSE hidden END,
+      updated_at = datetime('now') WHERE id = ?`).bind(name, key, body.id).run();
+  } catch (e) {
+    if (isUniqueError(e)) return fail(NAME_TAKEN, 409);
+    throw e;
   }
   return json({ ok: true });
 }
@@ -88,6 +118,7 @@ async function submitScore(request, env) {
   if (!check.ok) return fail(check.error, 422);
   const auth = await authPlayer(env, body, { create: true });
   if (auth.error) return fail(auth.error, auth.status);
+  if (!auth.player.name_key) return fail(NAME_TAKEN, 409);
   const res = await env.DB.prepare(
     'INSERT OR IGNORE INTO scores (player_id, day, won, attempts, seconds, hints, points) VALUES (?, ?, ?, ?, ?, ?, ?)',
   ).bind(body.id, body.day, check.won ? 1 : 0, check.attempts, Math.round(body.seconds), body.hints ?? 0, check.points).run();
@@ -180,14 +211,14 @@ async function adminPlayers(url, env) {
   const where = q ? 'WHERE p.name LIKE ?1' : '';
   const like = `%${q.replace(/[%_]/g, '')}%`;
   const stmt = env.DB.prepare(`
-    SELECT p.id, p.name, p.hidden, p.created_at,
+    SELECT p.id, p.name, p.hidden, p.name_key IS NULL AS clash, p.created_at,
       COUNT(s.day) AS games, COALESCE(SUM(s.points), 0) AS points, MAX(s.day) AS last_day
     FROM players p LEFT JOIN scores s ON s.player_id = p.id
     ${where}
     GROUP BY p.id ORDER BY p.created_at DESC LIMIT 100`);
   const { results } = await (q ? stmt.bind(like) : stmt).all();
   const total = await env.DB.prepare('SELECT COUNT(*) AS n FROM players').first();
-  return json({ players: results.map((r) => ({ ...r, hidden: !!r.hidden })), total: total?.n ?? 0 }, 200, { 'cache-control': 'no-store' });
+  return json({ players: results.map((r) => ({ ...r, hidden: !!r.hidden, clash: !!r.clash })), total: total?.n ?? 0 }, 200, { 'cache-control': 'no-store' });
 }
 
 // POST /v1/gizle  { id, hidden }  -> oyuncuyu listeden gizler (hidden: false ile geri gösterir)
@@ -195,6 +226,10 @@ async function hidePlayer(request, env) {
   const body = await readJson(request);
   if (!body || !isPlayerId(body.id)) return fail('Geçersiz istek');
   const hidden = body.hidden === false ? 0 : 1;
+  if (!hidden) {
+    const row = await env.DB.prepare('SELECT name_key FROM players WHERE id = ?').bind(body.id).first();
+    if (row && !row.name_key) return fail('Bu oyuncunun adı başka bir oyuncuda. Oyuncu yeni bir ad seçince kendiliğinden görünür.', 409);
+  }
   const res = await env.DB.prepare("UPDATE players SET hidden = ?, updated_at = datetime('now') WHERE id = ?").bind(hidden, body.id).run();
   return json({ ok: true, changed: res.meta?.changes ?? 0 });
 }

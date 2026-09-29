@@ -30,6 +30,7 @@ const defaults = () => ({
   playerId: null, // skor tablosu için cihaz kimliği
   playerSecret: null,
   scoreQueue: [], // gönderilmeyi bekleyen günlük skorlar
+  boardNameTaken: false, // skor tablosundaki ad başka bir oyuncuda; yeni ad seçilene kadar skor gönderilmez
   theme: 'system',
   length: DEFAULT_LENGTH,
   xp: 0,
@@ -85,8 +86,11 @@ export function updateProfile(patch) {
   return state;
 }
 
+// Oyun verileri silinir. Skor tablosu kimliği korunur: sunucudaki kayıt ve adın bu cihaza
+// bağlı kalır, sıfırlayıp aynı günün skorunu yeni bir oyuncu gibi yeniden göndermek mümkün olmaz.
 export function resetProfile() {
-  state = defaults();
+  const { playerId, playerSecret } = state;
+  state = { ...defaults(), playerId, playerSecret };
   write();
   return state;
 }
