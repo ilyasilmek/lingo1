@@ -45,7 +45,7 @@ Takıldığında ampul simgesine basıp bir harf açtırabilirsin. İpucu 4. tah
 
 **Uzunluğa göre istatistik.** İstatistikler sayfasında sonuçlarını 4'ten 9'a her kelime uzunluğu için ayrı ayrı görebilirsin.
 
-**Skor tablosu.** Günün kelimesini bitirdiğinde, istersen puanın diğer oyuncuların da gördüğü skor tablosuna eklenir. Bugün, bu hafta, bu ay ve tüm zamanlar listeleri var; haftalık, aylık ve tüm zamanlar puanı günlük puanların toplamıdır. Tabloda yalnızca oyuncu adın ve puanın görünür. Her ad tek bir oyuncuya aittir: "İlyas", "ilyas" ya da "ılyas" aynı ad sayılır ve başkası kullanıyorsa senden farklı bir ad seçmen istenir. Katılmak isteğe bağlıdır ve Profil sayfasından kapatılabilir. Verileri sıfırlamak skor tablosuna gönderilmiş skorları silmez. Puanı telefon değil sunucu hesaplar, bu yüzden sahte skor gönderilemez.
+**Skor tablosu.** Günün kelimesini bitirdiğinde, istersen puanın diğer oyuncuların da gördüğü skor tablosuna eklenir. Bugün, bu hafta, bu ay ve tüm zamanlar listeleri var; haftalık, aylık ve tüm zamanlar puanı günlük puanların toplamıdır. Tabloda yalnızca oyuncu adın ve puanın görünür. Katılmak isteğe bağlıdır ve Profil sayfasından kapatılabilir. Verileri sıfırlamak skor tablosuna gönderilmiş skorları silmez. Puanı telefon değil sunucu hesaplar, bu yüzden sahte skor gönderilemez.
 
 ## Uygulama nasıl çalışıyor
 
@@ -57,7 +57,9 @@ Takıldığında ampul simgesine basıp bir harf açtırabilirsin. İpucu 4. tah
 
 **Puan ve ilerleme.** Kelimeyi ne kadar erken ve hızlı bulursan o kadar çok puan alırsın; uzun kelimeler daha fazla puan getirir. Üst üste kazandığın günler seriyi uzatır, seri de puanı katlar. Topladığın XP ile seviye ve lig (Bronz, Gümüş, Altın, Platin, Elmas) yükselir.
 
-**Verilerin.** Seri, istatistikler ve yarım kalan oyunlar yalnızca senin cihazında saklanır. Hesap açmak gerekmez. Skor tablosuna katılırsan sunucuya yalnızca oyuncu adın, cihazına özel rastgele bir kimlik ve günün kelimesindeki tahminlerin gönderilir; e-posta, konum ya da başka bir kişisel bilgi toplanmaz. Android uygulaması internet bağlantısı olmadan da çalışır.
+**Benzersiz ad.** Her ad tek bir oyuncuya aittir: "İlyas", "ilyas" ya da "ı.lyas" aynı ad sayılır. Adını ilk girdiğinde ya da değiştirdiğinde sunucuda sana ayrılır; başkası kullanıyorsa hata mesajı görür ve farklı bir ad seçersin. İnternet yokken girdiğin ad bağlantı gelince ayrılır; o sırada başkasında çıkarsa yeni bir ad seçmen istenir.
+
+**Verilerin.** Seri, istatistikler ve yarım kalan oyunlar yalnızca senin cihazında saklanır. Hesap açmak gerekmez. Adının benzersiz olması için sunucuya oyuncu adın ve cihazına özel rastgele bir kimlik gönderilir. Skor tablosuna katılırsan bunlara günün kelimesindeki tahminlerin eklenir; e-posta, konum ya da başka bir kişisel bilgi toplanmaz. Android uygulaması internet bağlantısı olmadan da çalışır.
 
 ## Ekran görüntüleri
 

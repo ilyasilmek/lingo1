@@ -1,4 +1,5 @@
-// Oyuncu profili ve istatistikler tarayıcıda saklanır. Sunucu yok.
+// Oyuncu profili ve istatistikler tarayıcıda saklanır. Sunucuya yalnızca oyuncu adı (benzersiz olsun diye)
+// ve katılım varsa skor tablosu sonuçları gider.
 import { dayKey, DEFAULT_LENGTH } from './game.js';
 import {
   resolveStreak, addLengthResult, newlyUnlocked, daysBetween, FREEZE_COST, FREEZE_MAX,
@@ -9,6 +10,7 @@ const KEY = 'lingo:v1';
 const defaults = () => ({
   name: 'Oyuncu',
   nameSet: false, // ilk açılışta ad sorulana kadar false
+  nameClaimed: false, // ad sunucuda bu oyuncuya ayrıldı mı; çevrimdışı girilen ad sonraki açılışta ayrılır
   nameChangedAt: 0, // son ad değişikliğindeki gamesTotal değeri
   gamesTotal: 0, // biten tüm oyunlar (Zamana Karşı turları dahil)
   sound: true,
@@ -30,7 +32,7 @@ const defaults = () => ({
   playerId: null, // skor tablosu için cihaz kimliği
   playerSecret: null,
   scoreQueue: [], // gönderilmeyi bekleyen günlük skorlar
-  boardNameTaken: false, // skor tablosundaki ad başka bir oyuncuda; yeni ad seçilene kadar skor gönderilmez
+  boardNameTaken: false, // ad sunucuda başka bir oyuncuda; yeni ad seçilene kadar skor gönderilmez
   theme: 'system',
   length: DEFAULT_LENGTH,
   xp: 0,

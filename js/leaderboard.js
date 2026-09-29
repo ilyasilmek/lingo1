@@ -65,26 +65,29 @@ export async function flushScores() {
   return last;
 }
 
-// Adı skor tablosunda bu oyuncuya ayırır (ilk kayıtta oyuncuyu da oluşturur).
+// Adı sunucuda bu oyuncuya ayırır (ilk kayıtta oyuncuyu da oluşturur). Skor tablosuna katılmayı
+// gerektirmez; skor gönderilmeyen oyuncu listede görünmez.
 // Sonuç: { ok: true } | { ok: false, taken, offline, error }
 export async function claimName(name) {
   if (!leaderboardReady()) return { ok: false, offline: true, error: 'Skor tablosu hazır değil' };
   const { id, secret } = identity();
   try {
     await call('/v1/oyuncu', { method: 'POST', body: JSON.stringify({ id, secret, name }) });
-    updateProfile({ boardNameTaken: false });
+    updateProfile({ nameClaimed: true, boardNameTaken: false });
     return { ok: true };
   } catch (e) {
-    if (!e.status || e.status >= 500) return { ok: false, offline: true, error: 'Skor tablosuna ulaşılamadı. İnternet bağlantını kontrol et.' };
+    if (!e.status || e.status >= 500) return { ok: false, offline: true, error: 'Sunucuya ulaşılamadı. İnternet bağlantını kontrol et.' };
     if (e.status === 409) updateProfile({ boardNameTaken: true });
     return { ok: false, taken: e.status === 409, error: e.message };
   }
 }
 
-// Mevcut adı sunucuyla eşitler. Ad reddedilirse hata mesajı, bağlantı yoksa null döner.
+// Çevrimdışıyken girilmiş ya da eski sürümden kalmış adı sunucuda ayırmayı dener.
+// Ad reddedilirse hata mesajı, ad zaten ayrılmışsa ya da bağlantı yoksa null döner.
 export async function syncName() {
-  if (!leaderboardReady() || getProfile().leaderboard !== true) return null;
-  const r = await claimName(getProfile().name);
+  const p = getProfile();
+  if (!leaderboardReady() || !p.nameSet || (p.nameClaimed && !p.boardNameTaken)) return null;
+  const r = await claimName(p.name);
   return r.ok || r.offline ? null : r.error;
 }
 

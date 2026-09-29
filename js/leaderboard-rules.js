@@ -36,7 +36,7 @@ export function publicNameProblem(raw) {
   if (problem) return problem;
   const n = cleanName(raw).toLocaleLowerCase('tr-TR');
   const words = n.split(/[\s._-]+/);
-  if (BLOCKED.some((b) => words.includes(b) || (b.length > 3 && n.includes(b)))) return 'Bu ad skor tablosunda kullanılamaz.';
+  if (BLOCKED.some((b) => words.includes(b) || (b.length > 3 && n.includes(b)))) return 'Bu ad kullanılamaz.';
   if ([...nameKey(raw)].length < 2) return 'Ad en az 2 harf ya da rakam içermeli.';
   return null;
 }
