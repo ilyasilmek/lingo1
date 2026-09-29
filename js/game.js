@@ -1,0 +1,158 @@
+// Oyunun DOM'dan bağımsız mantığı. Node testleri de bu dosyayı doğrudan kullanır.
+
+export const WORD_LENGTH = 5;
+export const MAX_GUESSES = 6;
+export const TIME_ATTACK_SECONDS = 60;
+
+export const ALPHABET = 'ABCÇDEFGĞHIİJKLMNOÖPRSŞTUÜVYZ';
+
+export const KEYBOARD_ROWS = [
+  ['E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 'Ğ', 'Ü'],
+  ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'Ş', 'İ'],
+  ['ENTER', 'Z', 'C', 'V', 'B', 'N', 'M', 'Ö', 'Ç', 'BACKSPACE'],
+];
+
+export const STATE = { CORRECT: 'correct', PRESENT: 'present', ABSENT: 'absent' };
+const RANK = { absent: 1, present: 2, correct: 3 };
+
+export function trUpper(text) {
+  return text.toLocaleUpperCase('tr-TR');
+}
+
+export function isTurkishLetter(ch) {
+  return ch.length === 1 && ALPHABET.includes(ch);
+}
+
+// Tahmindeki her harf için correct / present / absent döndürür.
+// Tekrarlayan harfler Wordle kuralıyla sayılır: önce tam eşleşmeler düşülür,
+// kalan harf adedi kadar "present" verilir.
+export function evaluateGuess(guess, answer) {
+  const g = [...guess];
+  const a = [...answer];
+  if (g.length !== a.length) throw new Error('Tahmin ve cevap aynı uzunlukta olmalı');
+
+  const result = new Array(g.length).fill(STATE.ABSENT);
+  const remaining = new Map();
+
+  for (let i = 0; i < a.length; i++) {
+    if (g[i] === a[i]) result[i] = STATE.CORRECT;
+    else remaining.set(a[i], (remaining.get(a[i]) || 0) + 1);
+  }
+  for (let i = 0; i < g.length; i++) {
+    if (result[i] === STATE.CORRECT) continue;
+    const left = remaining.get(g[i]) || 0;
+    if (left > 0) {
+      result[i] = STATE.PRESENT;
+      remaining.set(g[i], left - 1);
+    }
+  }
+  return result;
+}
+
+// Klavye tuşlarının rengini, o harf için şimdiye kadar görülen en iyi durum belirler.
+export function keyboardStates(guesses, evaluations) {
+  const states = {};
+  guesses.forEach((word, row) => {
+    [...word].forEach((ch, i) => {
+      const s = evaluations[row][i];
+      if (!states[ch] || RANK[s] > RANK[states[ch]]) states[ch] = s;
+    });
+  });
+  return states;
+}
+
+// Henüz yeşil olarak bulunmamış bir pozisyonu açar. Hepsi bulunduysa null.
+export function pickHint(answer, guesses, evaluations, revealed = [], rand = Math.random) {
+  const known = new Set(revealed);
+  evaluations.forEach((row) => row.forEach((s, i) => s === STATE.CORRECT && known.add(i)));
+  const open = [...answer].map((_, i) => i).filter((i) => !known.has(i));
+  if (!open.length) return null;
+  return open[Math.floor(rand() * open.length)];
+}
+
+// Puan: erken bilmek ve hızlı bilmek ödüllendirilir, seri çarpanı en sonda uygulanır.
+export function streakMultiplier(streak) {
+  return Math.min(3, 1 + Math.max(0, streak) * 0.25);
+}
+
+export function scoreRound({ attempts, seconds, streak = 0, hintsUsed = 0 }) {
+  const base = (MAX_GUESSES + 1 - attempts) * 100;
+  const speedBonus = Math.max(0, 120 - Math.round(seconds));
+  const hintPenalty = hintsUsed * 50;
+  const multiplier = streakMultiplier(streak);
+  const score = Math.max(0, Math.round((base - hintPenalty) * multiplier));
+  const coins = 10 + (MAX_GUESSES - attempts) * 5;
+  return { base, speedBonus, hintPenalty, multiplier, score, xp: score + speedBonus, coins };
+}
+
+// Paylaşım için emoji ızgarası.
+const EMOJI = { correct: '🟩', present: '🟨', absent: '⬜' };
+export function shareText({ label, won, evaluations }) {
+  const head = `${label} ${won ? evaluations.length : 'X'}/${MAX_GUESSES}`;
+  const grid = evaluations.map((row) => row.map((s) => EMOJI[s]).join('')).join('\n');
+  return `${head}\n\n${grid}`;
+}
+
+// Tarih yardımcıları (yerel saate göre gün).
+const EPOCH = new Date(2026, 0, 1);
+
+export function dayKey(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+export function dayNumber(date = new Date()) {
+  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  return Math.round((start - EPOCH) / 86400000);
+}
+
+export function msUntilMidnight(date = new Date()) {
+  const next = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+  return next - date;
+}
+
+function mulberry32(seed) {
+  return function () {
+    seed |= 0;
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// Kelimeleri sabit tohumla karıştırır; aynı gün herkes aynı kelimeyi görür.
+export function seededShuffle(list, seed = 20260101) {
+  const out = [...list];
+  const rand = mulberry32(seed);
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+export function dailyIndex(listLength, date = new Date()) {
+  const n = dayNumber(date);
+  return ((n % listLength) + listLength) % listLength;
+}
+
+// XP'ye göre lig.
+const LEAGUES = [
+  [0, 'Bronz'],
+  [1500, 'Gümüş'],
+  [5000, 'Altın'],
+  [12000, 'Platin'],
+  [25000, 'Elmas'],
+];
+export function leagueFor(xp) {
+  let name = LEAGUES[0][1];
+  for (const [min, label] of LEAGUES) if (xp >= min) name = label;
+  return name;
+}
+
+export function levelFor(xp) {
+  return 1 + Math.floor(Math.sqrt(Math.max(0, xp) / 100));
+}
