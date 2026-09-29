@@ -1,7 +1,8 @@
-// Cevap olarak seçilebilecek kelimeler ve kısa açıklamaları.
-// Açıklamalar bu proje için yazıldı; TDK sözlüğünden alıntı değildir.
+// Sonuç ekranında gösterilen kısa kelime açıklamaları.
+// Bu proje için yazıldı; TDK sözlüğünden alıntı değildir. Açıklaması olmayan kelimeler
+// için sonuç ekranı TDK sözlüğüne bağlantı verir.
 
-export const ANSWERS = {
+export const MEANINGS = {
   KABLO: 'Elektrik ya da sinyal taşıyan, dışı yalıtılmış tel demeti.',
   KALEM: 'Yazı yazmaya ya da çizim yapmaya yarayan araç.',
   KİTAP: 'Ciltlenmiş, basılı sayfalardan oluşan eser.',
@@ -196,4 +197,3 @@ export const ANSWERS = {
   YILAN: 'Bacaksız, sürünerek ilerleyen sürüngen.',
 };
 
-export const ANSWER_LIST = Object.keys(ANSWERS);

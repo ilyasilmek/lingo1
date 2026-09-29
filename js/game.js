@@ -1,6 +1,9 @@
 // Oyunun DOM'dan bağımsız mantığı. Node testleri de bu dosyayı doğrudan kullanır.
 
-export const WORD_LENGTH = 5;
+export const MIN_LENGTH = 4;
+export const MAX_LENGTH = 9;
+export const DEFAULT_LENGTH = 5;
+export const DAILY_LENGTH = 5;
 export const MAX_GUESSES = 6;
 export const TIME_ATTACK_SECONDS = 60;
 
@@ -61,23 +64,34 @@ export function keyboardStates(guesses, evaluations) {
   return states;
 }
 
-// Henüz yeşil olarak bulunmamış bir pozisyonu açar. Hepsi bulunduysa null.
+// Lingo kuralı: ilk harf baştan açıktır, doğru yerde bulunan harfler ve ipuçları
+// sonraki satırlarda da gösterilir. Pozisyon -> harf.
+export function knownLetters(answer, evaluations, hints = []) {
+  const known = new Map([[0, answer[0]]]);
+  evaluations.forEach((row) => row.forEach((s, i) => s === STATE.CORRECT && known.set(i, answer[i])));
+  hints.forEach((i) => known.set(i, answer[i]));
+  return known;
+}
+
+// Henüz bilinmeyen bir pozisyonu açar. İlk harf zaten açık olduğu için hiç seçilmez.
+// Hepsi biliniyorsa null.
 export function pickHint(answer, guesses, evaluations, revealed = [], rand = Math.random) {
-  const known = new Set(revealed);
+  const known = new Set([0, ...revealed]);
   evaluations.forEach((row) => row.forEach((s, i) => s === STATE.CORRECT && known.add(i)));
   const open = [...answer].map((_, i) => i).filter((i) => !known.has(i));
   if (!open.length) return null;
   return open[Math.floor(rand() * open.length)];
 }
 
-// Puan: erken bilmek ve hızlı bilmek ödüllendirilir, seri çarpanı en sonda uygulanır.
+// Puan: erken ve hızlı bilmek ödüllendirilir, uzun kelime daha çok puan getirir.
+// Seri çarpanı en sonda uygulanır.
 export function streakMultiplier(streak) {
   return Math.min(3, 1 + Math.max(0, streak) * 0.25);
 }
 
-export function scoreRound({ attempts, seconds, streak = 0, hintsUsed = 0 }) {
-  const base = (MAX_GUESSES + 1 - attempts) * 100;
-  const speedBonus = Math.max(0, 120 - Math.round(seconds));
+export function scoreRound({ attempts, seconds, streak = 0, hintsUsed = 0, length = DEFAULT_LENGTH }) {
+  const base = Math.round(((MAX_GUESSES + 1 - attempts) * 100 * length) / DEFAULT_LENGTH);
+  const speedBonus = Math.max(0, 120 + (length - DEFAULT_LENGTH) * 20 - Math.round(seconds));
   const hintPenalty = hintsUsed * 50;
   const multiplier = streakMultiplier(streak);
   const score = Math.max(0, Math.round((base - hintPenalty) * multiplier));

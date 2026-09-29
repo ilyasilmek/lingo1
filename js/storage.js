@@ -1,11 +1,12 @@
 // Oyuncu profili ve istatistikler tarayıcıda saklanır. Sunucu yok.
-import { dayKey } from './game.js';
+import { dayKey, DEFAULT_LENGTH } from './game.js';
 
 const KEY = 'lingo:v1';
 
 const defaults = () => ({
   name: 'Oyuncu',
   theme: 'system',
+  length: DEFAULT_LENGTH,
   xp: 0,
   coins: 0,
   streak: 0,
@@ -16,7 +17,8 @@ const defaults = () => ({
   distribution: [0, 0, 0, 0, 0, 0],
   timeAttackBest: 0,
   classicCount: 0,
-  daily: null, // { day, guesses, hints, startedAt, finished, won, seconds }
+  daily: null, // { day, answer, guesses, hints, finished, won, seconds }
+  classic: null, // yarım kalan klasik oyun: { answer, label, guesses, hints, freeHint, seconds }
   quests: { day: null, wordsSolved: 0, firstTry: 0 },
 });
 

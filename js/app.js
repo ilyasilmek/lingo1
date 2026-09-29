@@ -1,11 +1,11 @@
 import {
-  WORD_LENGTH, MAX_GUESSES, TIME_ATTACK_SECONDS, KEYBOARD_ROWS, STATE,
-  trUpper, isTurkishLetter, evaluateGuess, keyboardStates, pickHint,
+  MIN_LENGTH, MAX_LENGTH, DAILY_LENGTH, MAX_GUESSES, TIME_ATTACK_SECONDS, KEYBOARD_ROWS, STATE,
+  trUpper, isTurkishLetter, evaluateGuess, keyboardStates, knownLetters, pickHint,
   scoreRound, streakMultiplier, shareText, dayKey, dayNumber, msUntilMidnight,
   seededShuffle, dailyIndex, leagueFor, levelFor,
 } from './game.js';
-import { ANSWERS, ANSWER_LIST } from './words.js';
-import { VALID_WORDS } from './dictionary.js';
+import { MEANINGS } from './words.js';
+import { loadWords } from './wordlist.js';
 import { ICONS } from './icons.js';
 import {
   getProfile, updateProfile, resetProfile, quests, currentStreak, recordRound,
@@ -13,9 +13,9 @@ import {
 
 const app = document.getElementById('app');
 const toasts = document.getElementById('toasts');
-const DAILY_ORDER = seededShuffle(ANSWER_LIST);
 const HINT_COST = 25;
 const DAILY_REWARD_FACTOR = 2;
+const TDK_URL = 'https://sozluk.gov.tr/';
 
 // Ekran değişince temizlenecek zamanlayıcı ve dinleyiciler.
 let cleanups = [];
@@ -24,11 +24,13 @@ function runCleanups() { cleanups.forEach((fn) => fn()); cleanups = []; }
 
 let session = null;
 let lastResult = null;
+let renderToken = 0;
 
 // ---------- Yardımcılar ----------
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = (n) => n.toLocaleString('tr-TR');
+const len = (w) => [...w].length;
 function icon(name, cls = '') {
   const paths = ICONS[name];
   if (!paths) return '';
@@ -72,13 +74,83 @@ function initials(name) {
   return trUpper((name || 'O').trim().charAt(0) || 'O');
 }
 
-function dailyWord(date = new Date()) {
-  return DAILY_ORDER[dailyIndex(DAILY_ORDER.length, date)];
+function selectedLength() {
+  const n = Number(getProfile().length);
+  return n >= MIN_LENGTH && n <= MAX_LENGTH ? n : DAILY_LENGTH;
 }
 
-function randomWord(exclude = []) {
-  const pool = ANSWER_LIST.filter((w) => !exclude.includes(w));
+function randomFrom(list, exclude = []) {
+  const pool = exclude.length ? list.filter((w) => !exclude.includes(w)) : list;
   return pool[Math.floor(Math.random() * pool.length)];
+}
+
+// ---------- Onay penceresi ----------
+
+function dialog({ title, body, actions }) {
+  return new Promise((resolve) => {
+    const prev = document.activeElement;
+    const wrap = document.createElement('div');
+    wrap.className = 'modal-backdrop';
+    wrap.innerHTML = `
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <h2 id="modal-title">${title}</h2>
+        <p>${body}</p>
+        <div class="modal-actions">
+          ${actions.map((a, i) => `<button class="btn ${a.primary ? 'btn-primary' : 'btn-soft'} btn-block" data-i="${i}">${a.label}</button>`).join('')}
+        </div>
+      </div>`;
+    const close = (value) => {
+      wrap.remove();
+      document.removeEventListener('keydown', onKey, true);
+      prev?.focus?.();
+      resolve(value);
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.stopPropagation(); close(null); }
+    };
+    wrap.addEventListener('click', (e) => {
+      if (e.target === wrap) return close(null);
+      const b = e.target.closest('[data-i]');
+      if (b) close(actions[Number(b.dataset.i)].value);
+    });
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(wrap);
+    wrap.querySelector('[data-i]').focus();
+    onCleanup(() => wrap.isConnected && close(null));
+  });
+}
+
+// Klasik mod: yarım kalan oyun varsa önce sorar.
+async function openClassic() {
+  const saved = getProfile().classic;
+  if (!saved) return go('#/oyna/klasik');
+  const n = len(saved.answer);
+  // Hiç tahmin yapılmamış oyunda kaybedilecek bir şey yok; uzunluk değiştiyse sormadan yenisi açılır.
+  if (!saved.guesses.length && n !== selectedLength()) {
+    abandonClassic();
+    return go('#/oyna/klasik');
+  }
+  const choice = await dialog({
+    title: 'Oyuna devam etmek ister misiniz?',
+    body: `Yarım kalan ${n} harfli bir oyunun var (${saved.guesses.length}/${MAX_GUESSES} tahmin).`
+      + (saved.guesses.length ? ' Yeni oyun başlatırsan bu oyun kaybedilmiş sayılır.' : ''),
+    actions: [
+      { label: `${icon('play_arrow', 'fill')}Devam`, value: 'continue', primary: true },
+      { label: `${icon('replay')}Yeni oyun`, value: 'new' },
+    ],
+  });
+  if (choice === 'continue') go('#/oyna/klasik');
+  else if (choice === 'new') {
+    abandonClassic();
+    go('#/oyna/klasik');
+  }
+}
+
+function abandonClassic() {
+  const saved = getProfile().classic;
+  if (!saved) return;
+  if (saved.guesses.length) recordRound({ won: false, attempts: saved.guesses.length });
+  updateProfile({ classic: null });
 }
 
 // ---------- Ortak parçalar ----------
@@ -123,13 +195,22 @@ function bottomNav(active) {
   return `
   <div class="bottom-nav"><nav aria-label="Ana gezinme">
     ${items.map(([href, ic, label, key]) => `
-      <a href="${href}" class="${active === key ? 'active' : ''}" ${active === key ? 'aria-current="page"' : ''}>${icon(ic, active === key ? 'fill' : '')}${label}</a>`).join('')}
+      <a href="${href}" class="${active === key ? 'active' : ''}" ${active === key ? 'aria-current="page"' : ''}
+        ${key === 'play' ? 'data-classic' : ''}>${icon(ic, active === key ? 'fill' : '')}${label}</a>`).join('')}
   </nav></div>`;
+}
+
+function bindCommon() {
+  app.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => go(b.dataset.go)));
+  app.querySelectorAll('[data-classic]').forEach((b) => b.addEventListener('click', (e) => {
+    e.preventDefault();
+    openClassic();
+  }));
 }
 
 function bindBack() {
   app.querySelector('[data-action="back"]')?.addEventListener('click', () => {
-    if (session && !session.finished && session.mode !== 'daily' && session.guesses.length) {
+    if (session && !session.finished && session.mode === 'time' && session.solved.length + session.guesses.length) {
       if (!confirm('Oyundan çıkmak istiyor musun? Bu tur kaydedilmeyecek.')) return;
     }
     go('#/');
@@ -141,10 +222,12 @@ function bindBack() {
 function renderHome() {
   const p = getProfile();
   const q = quests();
+  const n = selectedLength();
   const d = p.daily && p.daily.day === dayKey() ? p.daily : null;
   const dailyDone = d?.finished;
   const winRate = p.played ? Math.round((p.wins / p.played) * 100) : 0;
   const base = scoreRound({ attempts: 3, seconds: 60 });
+  const saved = p.classic;
 
   app.innerHTML = `
   ${headerHome(p)}
@@ -155,7 +238,7 @@ function renderHome() {
         <span class="countdown">${icon('timer')}<span id="midnight">${hms(msUntilMidnight())}</span> kaldı</span>
       </div>
       <h2 id="daily-title">Günün Şifresini Çöz</h2>
-      <p>Herkes aynı 5 harfli kelimeyi arıyor. 6 denemede bul, ödülü iki katı al.</p>
+      <p>Herkes aynı ${DAILY_LENGTH} harfli kelimeyi arıyor. İlk harf senden, gerisi 6 denemede. Ödül iki katı.</p>
       <div class="mini-tiles" aria-hidden="true">
         <span class="correct">L</span><span class="absent">İ</span><span class="present">N</span><span class="absent">G</span><span class="correct">O</span>
       </div>
@@ -179,17 +262,24 @@ function renderHome() {
         <h2 id="modes-title">Oyun Modları</h2>
         <span class="badge">Seviye ${levelFor(p.xp)}</span>
       </div>
+      <div class="card tight length-picker">
+        <span id="length-label" class="small muted">KELİME UZUNLUĞU</span>
+        <div class="length-options" role="radiogroup" aria-labelledby="length-label">
+          ${Array.from({ length: MAX_LENGTH - MIN_LENGTH + 1 }, (_, i) => MIN_LENGTH + i).map((k) => `
+            <button role="radio" aria-checked="${k === n}" data-length="${k}">${k}</button>`).join('')}
+        </div>
+      </div>
       <div class="modes">
-        <button class="mode" data-go="#/oyna/klasik">
-          <div class="mode-top"><span class="mode-icon dot mint">${icon('spellcheck')}</span><span class="badge mint">Stratejik</span></div>
-          <h3>Klasik 5 Harf</h3>
-          <p>6 tahmin hakkı, süre yok. Sadece sen ve kelime.</p>
-          <span class="mode-cta mint">Hemen Başla ${icon('arrow_forward')}</span>
+        <button class="mode" data-classic>
+          <div class="mode-top"><span class="mode-icon dot mint">${icon('spellcheck')}</span><span class="badge mint">${saved ? 'Yarım kaldı' : 'Stratejik'}</span></div>
+          <h3>Klasik ${n} Harf</h3>
+          <p>${saved ? `${len(saved.answer)} harfli oyunun seni bekliyor.` : '6 tahmin hakkı, süre yok. İlk harf açık gelir.'}</p>
+          <span class="mode-cta mint">${saved ? 'Devam Et' : 'Hemen Başla'} ${icon('arrow_forward')}</span>
         </button>
         <button class="mode" data-go="#/oyna/zaman">
           <div class="mode-top"><span class="mode-icon dot primary">${icon('timer')}</span><span class="badge primary">Turbo hız</span></div>
           <h3>Zamana Karşı</h3>
-          <p>${TIME_ATTACK_SECONDS} saniyede bildiğin kadar kelime. En iyin: ${fmt(p.timeAttackBest)} puan.</p>
+          <p>${TIME_ATTACK_SECONDS} saniyede ${n} harfli kelimelerden bildiğin kadar. En iyin: ${fmt(p.timeAttackBest)} puan.</p>
           <span class="mode-cta primary">Hemen Başla ${icon('arrow_forward')}</span>
         </button>
         <button class="mode" disabled aria-disabled="true">
@@ -216,7 +306,15 @@ function renderHome() {
   </main>
   ${bottomNav('home')}`;
 
-  app.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => go(b.dataset.go)));
+  bindCommon();
+  app.querySelectorAll('[data-length]').forEach((b) => b.addEventListener('click', () => {
+    updateProfile({ length: Number(b.dataset.length) });
+    const y = window.scrollY;
+    runCleanups();
+    renderHome();
+    window.scrollTo(0, y);
+    app.querySelector(`[data-length="${b.dataset.length}"]`)?.focus();
+  }));
 
   const tick = setInterval(() => {
     const left = msUntilMidnight();
@@ -241,10 +339,12 @@ function questRow(label, value, target) {
 
 // ---------- Oyun ----------
 
-function newSession(mode) {
-  const p = getProfile();
-  const base = {
+function baseSession(mode, answer, words) {
+  return {
     mode,
+    answer,
+    length: len(answer),
+    words,
     guesses: [],
     evaluations: [],
     current: [],
@@ -256,65 +356,110 @@ function newSession(mode) {
     startedAt: Date.now(),
     elapsedBefore: 0,
   };
+}
+
+function restore(s, saved) {
+  s.guesses = [...saved.guesses];
+  s.evaluations = saved.guesses.map((g) => evaluateGuess(g, s.answer));
+  s.hints = [...(saved.hints || [])];
+  s.freeHint = saved.freeHint ?? !s.hints.length;
+  s.elapsedBefore = saved.seconds || 0;
+  return s;
+}
+
+async function newSession(mode) {
+  const p = getProfile();
   if (mode === 'daily') {
-    const today = dayKey();
-    const answer = dailyWord();
-    const saved = p.daily && p.daily.day === today ? p.daily : null;
-    return {
-      ...base,
-      answer,
-      label: `Kelime #${dayNumber() + 1}`,
-      guesses: saved ? [...saved.guesses] : [],
-      evaluations: saved ? saved.guesses.map((g) => evaluateGuess(g, answer)) : [],
-      hints: saved ? [...(saved.hints || [])] : [],
-      freeHint: saved ? !(saved.hints || []).length : true,
-      finished: saved?.finished || false,
-      won: saved?.won || false,
-      elapsedBefore: saved?.seconds || 0,
-    };
+    const words = await loadWords(DAILY_LENGTH);
+    const order = seededShuffle(words.answers);
+    const answer = order[dailyIndex(order.length)];
+    const s = baseSession(mode, answer, words);
+    s.label = `Kelime #${dayNumber() + 1}`;
+    const saved = p.daily && p.daily.day === dayKey() && p.daily.answer === answer ? p.daily : null;
+    if (saved) {
+      restore(s, saved);
+      s.finished = saved.finished;
+      s.won = saved.won;
+    }
+    return s;
   }
   if (mode === 'time') {
-    return {
-      ...base,
-      answer: randomWord(),
+    const words = await loadWords(selectedLength());
+    const s = baseSession(mode, randomFrom(words.answers), words);
+    return Object.assign(s, {
       label: 'Kelime 1',
       deadline: Date.now() + TIME_ATTACK_SECONDS * 1000,
       wordStartedAt: Date.now(),
       solved: [],
       missed: [],
       totalScore: 0,
-    };
+    });
   }
+  // Klasik: kayıtlı yarım oyun varsa ondan devam edilir.
+  const saved = p.classic;
+  if (saved) {
+    const words = await loadWords(len(saved.answer));
+    const s = restore(baseSession(mode, saved.answer, words), saved);
+    s.label = saved.label;
+    return s;
+  }
+  const words = await loadWords(selectedLength());
+  const s = baseSession(mode, randomFrom(words.answers), words);
+  s.label = `Klasik #${p.classicCount + 1}`;
   updateProfile({ classicCount: p.classicCount + 1 });
-  return { ...base, answer: randomWord([dailyWord()]), label: `Klasik #${p.classicCount + 1}` };
+  saveProgress(s);
+  return s;
 }
 
 function elapsedSeconds(s = session) {
   return s.elapsedBefore + (Date.now() - s.startedAt) / 1000;
 }
 
-function saveDaily() {
-  if (session.mode !== 'daily') return;
-  updateProfile({
-    daily: {
-      day: dayKey(),
-      guesses: session.guesses,
-      hints: session.hints,
-      finished: session.finished,
-      won: session.won,
-      seconds: Math.round(elapsedSeconds()),
-    },
-  });
+function saveProgress(s = session) {
+  if (!s) return;
+  const common = {
+    answer: s.answer,
+    guesses: s.guesses,
+    hints: s.hints,
+    freeHint: s.freeHint,
+    seconds: Math.round(elapsedSeconds(s)),
+  };
+  if (s.mode === 'daily') {
+    updateProfile({ daily: { ...common, day: dayKey(), finished: s.finished, won: s.won } });
+  } else if (s.mode === 'classic') {
+    updateProfile({ classic: s.finished ? null : { ...common, label: s.label } });
+  }
 }
 
-function renderGame(mode) {
-  session = newSession(mode);
+async function renderGame(mode) {
+  const token = renderToken;
+  app.innerHTML = `${headerGame('Oyun Alanı')}<main class="page game"><p class="muted" style="text-align:center;margin-top:40px">Kelimeler yükleniyor…</p></main>`;
+  bindBack();
+  let s;
+  try {
+    s = await newSession(mode);
+  } catch (e) {
+    if (token !== renderToken) return;
+    app.querySelector('main').innerHTML = `
+      <div class="card" style="text-align:center;margin-top:24px">
+        <p>Kelime listesi yüklenemedi. Bağlantını kontrol edip tekrar dene.</p>
+        <button class="btn btn-primary" data-go="${location.hash}">Tekrar dene</button>
+      </div>`;
+    bindCommon();
+    return;
+  }
+  if (token !== renderToken) return;
+  session = s;
+
   if (session.finished) {
     lastResult = buildResult(session, { alreadyRecorded: true });
     go('#/sonuc', { replace: true });
     return;
   }
+  session.startedAt = Date.now();
+  startRow();
 
+  const n = session.length;
   const multiplier = streakMultiplier(currentStreak());
   const legend = `
     <div class="legend">
@@ -330,7 +475,7 @@ function renderGame(mode) {
       <div class="meta-row">
         <div>
           <span class="badge" id="round-label">${esc(session.label)}</span>
-          <span class="badge mint">● ${WORD_LENGTH} Harfli</span>
+          <span class="badge mint">● ${n} Harfli</span>
         </div>
         <div>
           ${mode === 'time'
@@ -345,10 +490,10 @@ function renderGame(mode) {
       </div>
     </section>
     ${legend}
-    <div class="board" id="board" aria-label="Tahmin tahtası">
+    <div class="board" id="board" style="--n:${n}" aria-label="Tahmin tahtası">
       ${Array.from({ length: MAX_GUESSES }, (_, r) => `
         <div class="row" data-row="${r}">
-          ${Array.from({ length: WORD_LENGTH }, (_, c) => `
+          ${Array.from({ length: n }, (_, c) => `
             <div class="tile" data-col="${c}">
               <div class="tile-inner"><div class="face front"></div><div class="face back"></div></div>
             </div>`).join('')}
@@ -379,7 +524,7 @@ function renderGame(mode) {
   app.querySelector('#hint-btn').addEventListener('click', useHint);
 
   const onKey = (e) => {
-    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.ctrlKey || e.metaKey || e.altKey || document.querySelector('.modal-backdrop')) return;
     if (e.key === 'Enter') { e.preventDefault(); handleKey('ENTER'); return; }
     if (e.key === 'Backspace') { e.preventDefault(); handleKey('BACKSPACE'); return; }
     const ch = trUpper(e.key);
@@ -392,24 +537,32 @@ function renderGame(mode) {
   updateTimer();
   onCleanup(() => clearInterval(tick));
 
-  const onHide = () => { if (document.hidden) saveDaily(); };
+  const onHide = () => { if (document.hidden && !session?.finished) saveProgress(); };
   document.addEventListener('visibilitychange', onHide);
-  onCleanup(() => { document.removeEventListener('visibilitychange', onHide); if (session && !session.finished) saveDaily(); });
+  onCleanup(() => {
+    document.removeEventListener('visibilitychange', onHide);
+    if (session && !session.finished) saveProgress();
+  });
+}
+
+// Her satır, açık olan ilk harfle başlar.
+function startRow() {
+  session.current = [[...session.answer][0]];
 }
 
 function rowEl(r) { return app.querySelector(`.row[data-row="${r}"]`); }
 
 function paintBoard({ restore = false } = {}) {
-  const rows = app.querySelectorAll('.row');
-  rows.forEach((row, r) => {
+  const known = knownLetters([...session.answer], session.evaluations, session.hints);
+  app.querySelectorAll('.row').forEach((row, r) => {
     const tiles = row.querySelectorAll('.tile');
     const done = r < session.guesses.length;
     tiles.forEach((tile, c) => {
       const front = tile.querySelector('.front');
       const back = tile.querySelector('.back');
-      tile.classList.remove('filled', 'active-row', 'hinted', 'cursor');
+      tile.classList.remove('filled', 'active-row', 'hinted', 'cursor', 'locked');
       if (done) {
-        const ch = session.guesses[r][c];
+        const ch = [...session.guesses[r]][c];
         front.textContent = ch;
         back.textContent = ch;
         back.className = `face back ${session.evaluations[r][c]}`;
@@ -422,11 +575,14 @@ function paintBoard({ restore = false } = {}) {
       } else if (r === session.guesses.length && !session.finished) {
         const ch = session.current[c];
         tile.classList.add('active-row');
-        if (ch) {
+        if (c === 0) {
+          front.textContent = ch;
+          tile.classList.add('locked');
+        } else if (ch) {
           front.textContent = ch;
           tile.classList.add('filled');
-        } else if (session.hints.includes(c)) {
-          front.textContent = session.answer[c];
+        } else if (known.has(c)) {
+          front.textContent = known.get(c);
           tile.classList.add('hinted');
         } else {
           front.textContent = '';
@@ -504,13 +660,13 @@ function handleKey(key) {
   if (!session || session.finished || session.busy) return;
   if (key === 'ENTER') return submitGuess();
   if (key === 'BACKSPACE') {
-    if (session.current.length) {
+    if (session.current.length > 1) {
       session.current.pop();
       paintBoard();
     }
     return;
   }
-  if (session.current.length >= WORD_LENGTH) return;
+  if (session.current.length >= session.length) return;
   session.current.push(key);
   paintBoard();
   const tile = rowEl(session.guesses.length)?.querySelectorAll('.tile')[session.current.length - 1];
@@ -530,27 +686,29 @@ function shakeRow(message) {
 }
 
 function submitGuess() {
-  if (session.current.length < WORD_LENGTH) return shakeRow('Kelime 5 harfli olmalı');
+  const n = session.length;
+  if (session.current.length < n) return shakeRow(`Kelime ${n} harfli olmalı`);
   const guess = session.current.join('');
-  if (!VALID_WORDS.has(guess)) return shakeRow('Bu kelime listede yok');
+  if (!session.words.valid.has(guess)) return shakeRow('Bu kelime TDK sözlüğünde yok');
 
   const evaluation = evaluateGuess(guess, session.answer);
   const r = session.guesses.length;
   session.guesses.push(guess);
   session.evaluations.push(evaluation);
-  session.current = [];
   session.busy = true;
 
   const row = rowEl(r);
   const tiles = row.querySelectorAll('.tile');
+  const letters = [...guess];
+  const step = n > 6 ? 180 : 250;
   tiles.forEach((tile, c) => {
     const back = tile.querySelector('.back');
-    back.textContent = guess[c];
+    back.textContent = letters[c];
     back.className = `face back ${evaluation[c]}`;
-    tile.classList.remove('active-row', 'cursor', 'hinted');
-    tile.querySelector('.tile-inner').style.transitionDelay = `${c * 250}ms`;
+    tile.classList.remove('active-row', 'cursor', 'hinted', 'locked');
+    tile.querySelector('.tile-inner').style.transitionDelay = `${c * step}ms`;
     tile.classList.add('flipped');
-    tile.setAttribute('aria-label', `${guess[c]}, ${stateLabel(evaluation[c])}`);
+    tile.setAttribute('aria-label', `${letters[c]}, ${stateLabel(evaluation[c])}`);
   });
 
   const won = evaluation.every((s) => s === STATE.CORRECT);
@@ -558,10 +716,12 @@ function submitGuess() {
   if (won || lost) {
     session.finished = session.mode !== 'time';
     session.won = won;
+  } else {
+    startRow();
   }
-  saveDaily();
+  saveProgress();
 
-  const revealMs = (WORD_LENGTH - 1) * 250 + 650;
+  const revealMs = (n - 1) * step + 650;
   setTimeout(() => {
     if (!app.contains(row)) return;
     tiles.forEach((t) => { t.querySelector('.tile-inner').style.transitionDelay = ''; });
@@ -583,7 +743,7 @@ function submitGuess() {
 
 function useHint() {
   if (!session || session.finished || session.busy) return;
-  const idx = pickHint(session.answer, session.guesses, session.evaluations, session.hints);
+  const idx = pickHint([...session.answer], session.guesses, session.evaluations, session.hints);
   if (idx === null) return toast('Tüm harflerin yeri zaten belli');
   if (session.freeHint) {
     session.freeHint = false;
@@ -593,15 +753,14 @@ function useHint() {
     updateProfile({ coins: p.coins - HINT_COST });
   }
   session.hints.push(idx);
-  toast(`${idx + 1}. harf: ${session.answer[idx]}`);
-  saveDaily();
+  toast(`${idx + 1}. harf: ${[...session.answer][idx]}`);
+  saveProgress();
   paintHint();
   paintBoard();
 }
 
 function finishRound() {
-  const s = session;
-  lastResult = buildResult(s, { alreadyRecorded: false });
+  lastResult = buildResult(session, { alreadyRecorded: false });
   go('#/sonuc');
 }
 
@@ -611,7 +770,7 @@ function buildResult(s, { alreadyRecorded }) {
   const streakBefore = currentStreak();
   let reward = { score: 0, xp: 0, coins: 0, speedBonus: 0, multiplier: 1 };
   if (s.won) {
-    reward = scoreRound({ attempts, seconds, streak: streakBefore, hintsUsed: s.hints.length });
+    reward = scoreRound({ attempts, seconds, streak: streakBefore, hintsUsed: s.hints.length, length: s.length });
     if (s.mode === 'daily') {
       reward = { ...reward, xp: reward.xp * DAILY_REWARD_FACTOR, coins: reward.coins * DAILY_REWARD_FACTOR };
     }
@@ -639,7 +798,7 @@ function afterTimeGuess(won, lost) {
   const s = session;
   if (won) {
     const seconds = (Date.now() - s.wordStartedAt) / 1000;
-    const r = scoreRound({ attempts: s.guesses.length, seconds, hintsUsed: s.hints.length });
+    const r = scoreRound({ attempts: s.guesses.length, seconds, hintsUsed: s.hints.length, length: s.length });
     s.totalScore += r.score + r.speedBonus;
     s.solved.push({ word: s.answer, attempts: s.guesses.length });
     rowEl(s.guesses.length - 1).classList.add('win');
@@ -658,14 +817,14 @@ function nextTimeWord() {
   const s = session;
   if (!s || s.mode !== 'time' || s.finished) return;
   const used = [...s.solved.map((x) => x.word), ...s.missed];
-  s.answer = randomWord(used);
+  s.answer = randomFrom(s.words.answers, used);
   s.guesses = [];
   s.evaluations = [];
-  s.current = [];
   s.hints = [];
   s.freeHint = true;
   s.wordStartedAt = Date.now();
   s.label = `Kelime ${used.length + 1}`;
+  startRow();
   app.querySelector('#round-label').textContent = s.label;
   app.querySelector('#solved-count').textContent = s.solved.length;
   app.querySelectorAll('.row').forEach((row) => row.classList.remove('win'));
@@ -695,26 +854,44 @@ function finishTimeAttack() {
     current: s.answer,
     totalScore: s.totalScore,
     coins,
-    isBest: s.totalScore > 0 && s.totalScore >= best && s.totalScore > p.timeAttackBest,
+    isBest: s.totalScore > 0 && s.totalScore > p.timeAttackBest,
   };
   go('#/sonuc');
 }
 
 // ---------- Sonuç ----------
 
+function meaningBlock(word) {
+  const meaning = MEANINGS[word];
+  const title = `${word.charAt(0)}${word.slice(1).toLocaleLowerCase('tr-TR')}`;
+  if (meaning) {
+    return `
+      <div class="meaning">
+        <div class="small">${icon('menu_book')}Anlamı</div>
+        <p><b>${esc(title)}:</b> ${esc(meaning)}</p>
+      </div>`;
+  }
+  return `
+    <div class="meaning">
+      <div class="small">${icon('menu_book')}Anlamı</div>
+      <p><b>${esc(title)}</b> kelimesinin açıklaması uygulamada yok.
+      <a href="${TDK_URL}" target="_blank" rel="noopener">TDK Güncel Türkçe Sözlük</a>'te arayabilirsin.</p>
+    </div>`;
+}
+
 function renderResult() {
   const r = lastResult;
   if (!r) return go('#/');
   if (r.mode === 'time') return renderTimeResult(r);
 
-  const meaning = ANSWERS[r.answer];
+  const n = len(r.answer);
   const title = r.won ? (r.attempts <= 2 ? 'EFSANE!' : r.attempts <= 4 ? 'MUHTEŞEM ZAFER!' : 'KIL PAYI!') : 'BU SEFER OLMADI';
   const sub = r.won
     ? `Tebrikler, kelimeyi <b>${r.attempts}. denemede</b> bildin.`
     : r.mode === 'daily'
       ? 'Kelimeyi bulamadın. Yarın yeni kelimeyle tekrar dene.'
       : 'Kelimeyi bulamadın. Sıradakinde şansını dene.';
-  const shareLabel = r.mode === 'daily' ? `Lingo ${r.label.replace('Kelime ', '')}` : `Lingo ${r.label}`;
+  const shareLabel = r.mode === 'daily' ? `Lingo ${r.label.replace('Kelime ', '')}` : `Lingo ${r.label} (${n} harf)`;
 
   app.innerHTML = `
   ${headerGame('Oyun Alanı')}
@@ -726,14 +903,10 @@ function renderResult() {
     </section>
 
     <section class="card">
-      <div class="answer-tiles ${r.won ? '' : 'lost'}">
+      <div class="answer-tiles ${r.won ? '' : 'lost'}" style="--n:${n}">
         ${[...r.answer].map((ch, i) => `<span style="animation-delay:${i * 80}ms">${ch}</span>`).join('')}
       </div>
-      ${meaning ? `
-      <div class="meaning">
-        <div class="small">${icon('menu_book')}Anlamı</div>
-        <p><b>${r.answer.charAt(0)}${r.answer.slice(1).toLocaleLowerCase('tr-TR')}:</b> ${esc(meaning)}</p>
-      </div>` : ''}
+      ${meaningBlock(r.answer)}
     </section>
 
     <section class="kv-grid">
@@ -756,7 +929,7 @@ function renderResult() {
     <section class="card" style="display:flex;flex-direction:column;gap:12px">
       <div class="section-head">
         <h2 style="font-size:18px">${icon('share')}Skorunu Paylaş</h2>
-        <span class="small muted">${esc(shareLabel)} ${r.won ? r.attempts : 'X'}/${MAX_GUESSES}</span>
+        <span class="small muted">${r.won ? r.attempts : 'X'}/${MAX_GUESSES}</span>
       </div>
       <div class="share-grid">
         ${r.guesses.map((g, i) => `<div>${[...g].map((ch, c) => `<span class="${r.evaluations[i][c]}">${ch}</span>`).join('')}</div>`).join('')}
@@ -764,17 +937,14 @@ function renderResult() {
       <button class="btn btn-soft btn-block" id="copy">${icon('content_copy')}Skoru Kopyala</button>
     </section>
 
-    ${r.mode === 'daily'
-      ? `<button class="btn btn-primary btn-block" data-go="#/oyna/klasik">KLASİK MODDA DEVAM ET ${icon('arrow_forward')}</button>`
-      : `<button class="btn btn-primary btn-block" data-go="#/oyna/klasik">SONRAKİ KELİMEYE GEÇ ${icon('arrow_forward')}</button>`}
+    <button class="btn btn-primary btn-block" data-classic>${r.mode === 'daily' ? 'KLASİK MODDA DEVAM ET' : 'SONRAKİ KELİMEYE GEÇ'} ${icon('arrow_forward')}</button>
     <button class="btn btn-ghost" data-go="#/">${icon('home')}Ana Menüye Dön</button>
   </main>`;
 
   bindBack();
-  app.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => go(b.dataset.go)));
+  bindCommon();
   app.querySelector('#copy').addEventListener('click', () => {
-    const text = shareText({ label: shareLabel, won: r.won, evaluations: r.evaluations });
-    copy(text);
+    copy(shareText({ label: shareLabel, won: r.won, evaluations: r.evaluations }));
   });
   if (r.won && !r.alreadyRecorded) confetti();
 }
@@ -797,13 +967,13 @@ function renderTimeResult(r) {
       ${r.solved.map((w) => `<div class="quest-row"><span>${w.word}</span><span class="badge mint">${w.attempts}. deneme</span></div>`).join('')}
       ${r.missed.map((w) => `<div class="quest-row"><span>${w}</span><span class="badge">Kaçtı</span></div>`).join('')}
       <div class="quest-row"><span class="muted">Yarım kalan: ${r.current}</span></div>
-      ${ANSWERS[r.current] ? `<p class="muted" style="margin:0">${esc(ANSWERS[r.current])}</p>` : ''}
+      ${MEANINGS[r.current] ? `<p class="muted" style="margin:0">${esc(MEANINGS[r.current])}</p>` : ''}
     </section>
     <button class="btn btn-primary btn-block" data-go="#/oyna/zaman">${icon('replay')}TEKRAR OYNA</button>
     <button class="btn btn-ghost" data-go="#/">${icon('home')}Ana Menüye Dön</button>
   </main>`;
   bindBack();
-  app.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => go(b.dataset.go)));
+  bindCommon();
   if (r.solved.length) confetti();
 }
 
@@ -865,9 +1035,9 @@ function renderStats() {
     <section class="card" style="display:flex;flex-direction:column;gap:12px">
       <h2 style="font-size:18px">Tahmin dağılımı</h2>
       <div class="dist">
-        ${p.distribution.map((n, i) => `
+        ${p.distribution.map((c, i) => `
           <div class="dist-row"><span>${i + 1}</span>
-            <span class="dist-bar ${lastDaily === i + 1 ? 'hl' : ''}" style="width:${Math.max(8, (n / max) * 100)}%">${n}</span>
+            <span class="dist-bar ${lastDaily === i + 1 ? 'hl' : ''}" style="width:${Math.max(8, (c / max) * 100)}%">${c}</span>
           </div>`).join('')}
       </div>
     </section>
@@ -880,6 +1050,7 @@ function renderStats() {
     <p class="muted" style="margin:0">Liderlik tablosu için sunucu gerekiyor. Şimdilik istatistikler yalnızca bu cihazda tutuluyor.</p>
   </main>
   ${bottomNav('stats')}`;
+  bindCommon();
 }
 
 // ---------- Profil ----------
@@ -906,18 +1077,20 @@ function renderProfile() {
     <section class="card" style="display:flex;flex-direction:column;gap:10px">
       <h2 style="font-size:18px">Nasıl oynanır?</h2>
       <ul class="rules">
-        <li>5 harfli Türkçe kelimeyi 6 denemede bul.</li>
-        <li><b style="color:var(--correct-ink)">Yeşil</b>: harf doğru yerde.</li>
+        <li>Kelimenin ilk harfi baştan açıktır. Kalan harfleri 6 denemede bul.</li>
+        <li>Kelime uzunluğunu ana sayfadan seç: 4 ile 9 harf arası. Günün kelimesi her zaman ${DAILY_LENGTH} harflidir.</li>
+        <li><b style="color:var(--correct-ink)">Yeşil</b>: harf doğru yerde. Bu harfler sonraki satırda da gösterilir.</li>
         <li><b style="color:var(--present-ink)">Turuncu</b>: harf kelimede var ama başka yerde.</li>
         <li><b>Mavi-gri</b>: harf kelimede yok.</li>
+        <li>Tahminler TDK Güncel Türkçe Sözlük'teki kelimelerden olmalı.</li>
         <li>Her kelimede bir ipucu bedava. Sonrakiler ${HINT_COST} coin.</li>
-        <li>Günün kelimesi herkes için aynıdır ve gece yarısı yenilenir.</li>
       </ul>
     </section>
     <button class="btn btn-ghost" id="reset" style="color:var(--danger)">${icon('delete')}Tüm verileri sıfırla</button>
   </main>
   ${bottomNav('profile')}`;
 
+  bindCommon();
   const name = app.querySelector('#name');
   name.addEventListener('change', () => {
     updateProfile({ name: name.value.trim() || 'Oyuncu' });
@@ -951,9 +1124,10 @@ const routes = {
 
 function render() {
   runCleanups();
+  renderToken++;
   const path = location.hash.replace(/^#\/?/, '');
   const view = routes[path] || renderHome;
-  if (!path.startsWith('oyna')) session = null;
+  session = null;
   window.scrollTo(0, 0);
   view();
 }

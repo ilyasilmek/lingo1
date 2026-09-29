@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node scripts/serve.mjs",
     "test": "node --test tests/*.test.js",
-    "build:dict": "node scripts/build-dictionary.mjs"
+    "build:words": "node scripts/build-words.mjs"
   },
   "devDependencies": {
     "an-array-of-turkish-words": "1.2.0"

@@ -378,10 +378,12 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 999px; margin-right: 4px; vertical-align: -1px; }
 
 .board {
-  display: grid; grid-template-rows: repeat(6, 1fr); gap: 6px;
-  width: 100%; max-width: 340px; margin: 0 auto;
+  --n: 5;
+  --gap: calc(10px - var(--n) * 0.6px);
+  display: grid; grid-template-rows: repeat(6, 1fr); gap: var(--gap);
+  width: 100%; max-width: min(100%, calc(var(--n) * 68px)); margin: 0 auto;
 }
-.row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.row { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: var(--gap); }
 .row.shake { animation: shake 0.45s ease; }
 .tile { aspect-ratio: 1; perspective: 1000px; }
 .tile-inner {
@@ -393,7 +395,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .face {
   position: absolute; inset: 0; border-radius: var(--radius-tile);
   display: flex; align-items: center; justify-content: center;
-  font-weight: 800; font-size: clamp(22px, 7vw, 32px); line-height: 1;
+  font-weight: 800; font-size: clamp(15px, calc(36vw / var(--n, 5)), 32px); line-height: 1;
   backface-visibility: hidden; -webkit-backface-visibility: hidden;
 }
 .face.front { background: var(--surface-low); border: 2px solid transparent; }
@@ -401,7 +403,9 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .tile.filled .face.front { background: var(--surface); border-color: var(--primary); box-shadow: var(--shadow-1); }
 .tile.filled .face.front::after, .tile.hinted .face.front::after { display: none; }
 .tile.active-row .face.front { border-color: color-mix(in srgb, var(--primary) 55%, transparent); background: var(--surface); }
-.tile.hinted .face.front { color: var(--correct-ink); border: 2px dashed var(--correct-ink); background: var(--surface); }
+.tile.hinted .face.front { color: var(--correct-ink); border: 2px dashed var(--correct-ink); background: var(--surface); opacity: 0.75; }
+.tile.locked .face.front { background: var(--correct-soft); color: var(--correct-ink); border: 2px solid var(--correct-ink); }
+.tile.locked .face.front::after { display: none; }
 .tile.cursor .face.front { box-shadow: 0 0 0 3px var(--primary-glow); }
 .tile.pop .tile-inner { animation: pop 0.18s ease; }
 .face.back { transform: rotateX(180deg); }
@@ -445,6 +449,30 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .key.enter { background: var(--primary); color: #fff; box-shadow: 0 4px 10px var(--primary-glow); font-weight: 800; }
 .key.wide .icon { width: 20px; height: 20px; }
 
+/* Kelime uzunluğu seçici */
+.length-picker { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.length-options { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; background: var(--surface-low); border-radius: 999px; padding: 4px; flex: 1; max-width: 300px; }
+.length-options button { min-height: 36px; border-radius: 999px; font-weight: 700; color: var(--text-2); }
+.length-options button[aria-checked='true'] { background: var(--primary); color: #fff; box-shadow: 0 2px 8px var(--primary-glow); }
+
+/* Onay penceresi */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  animation: toast-in 0.15s ease;
+}
+.modal {
+  width: 100%; max-width: 380px;
+  background: var(--surface); color: var(--text);
+  border-radius: var(--radius-sheet); box-shadow: var(--shadow-3);
+  padding: 24px; display: flex; flex-direction: column; gap: 10px;
+}
+.modal h2 { margin: 0; font-size: 22px; line-height: 28px; font-weight: 800; }
+.modal p { margin: 0 0 8px; color: var(--text-2); font-size: 15px; line-height: 22px; }
+.modal-actions { display: flex; flex-direction: column; gap: 8px; }
+
 /* Bildirim */
 .toast-wrap { position: fixed; top: 76px; left: 0; right: 0; z-index: 50; display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
 .toast {
@@ -459,18 +487,19 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .result-head h2 { margin: 0; font-size: clamp(30px, 9vw, 40px); line-height: 1.15; font-weight: 800; letter-spacing: -0.02em; }
 .result-head p { margin: 0; font-size: 16px; color: var(--text-2); }
 .result-head p b { color: var(--primary-ink); }
-.answer-tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.answer-tiles { --n: 5; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: calc(10px - var(--n) * 0.6px); }
 .answer-tiles span {
   aspect-ratio: 1; border-radius: var(--radius-tile);
   background: var(--correct-bg); color: #fff;
   display: flex; align-items: center; justify-content: center;
-  font-size: clamp(26px, 9vw, 40px); font-weight: 800;
+  font-size: clamp(16px, calc(44vw / var(--n)), 40px); font-weight: 800;
   animation: pop 0.35s ease both;
 }
 .answer-tiles.lost span { background: var(--surface-high); color: var(--text); }
 .meaning { margin-top: 14px; background: var(--surface-low); border-radius: 12px; padding: 12px 14px; }
 .meaning .small { display: flex; align-items: center; gap: 6px; color: var(--text-2); margin-bottom: 4px; text-transform: uppercase; }
 .meaning p { margin: 0; font-size: 16px; line-height: 24px; }
+.meaning a { color: var(--primary-ink); font-weight: 600; }
 
 .kv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .kv { background: var(--surface); border-radius: var(--radius-card); box-shadow: var(--shadow-1); padding: 12px; display: flex; align-items: center; gap: 10px; }
@@ -482,7 +511,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 
 .share-grid { display: flex; flex-direction: column; gap: 4px; align-items: center; background: var(--surface-low); border-radius: 12px; padding: 12px; }
 .share-grid div { display: flex; gap: 4px; }
-.share-grid span { width: 30px; height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; }
+.share-grid span { width: 26px; height: 26px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; }
 .share-grid .correct { background: var(--correct-bg); color: #fff; }
 .share-grid .present { background: var(--present-bg); color: #fff; }
 .share-grid .absent { background: var(--absent-bg); color: var(--absent-fg); }
