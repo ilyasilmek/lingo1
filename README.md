@@ -19,6 +19,8 @@ Türkçe kelime tahmin oyunu. Kelimenin ilk harfi baştan açık gelir, geri kal
    - **Mavi-gri:** harf kelimede yok.
 5. Doğru yerini bulduğun harfler bir sonraki satırda soluk olarak gösterilir. Altı denemede kelimeyi bulursan kazanırsın.
 
+İlk açılışta senden bir oyuncu adı istenir. Adını her 10 oyunda bir ücretsiz değiştirebilirsin; beklemek istemezsen 1000 coin ödersin. Oyun sesleri ve tuşlardaki titreşim Profil sayfasındaki Ayarlar bölümünden açılıp kapatılır.
+
 Takıldığında ampul simgesine basıp bir harf açtırabilirsin. Her kelimede bir ipucu bedava, sonrakiler oyunda kazandığın coin'lerle alınır.
 
 ## Oyun modları

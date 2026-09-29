@@ -162,3 +162,31 @@ export function leagueFor(xp) {
 export function levelFor(xp) {
   return 1 + Math.floor(Math.sqrt(Math.max(0, xp) / 100));
 }
+
+// Oyuncu adı. Uygulama sunucusuz olduğu için bu kurallar yalnızca bu cihazda geçerlidir.
+export const NAME_MIN = 2;
+export const NAME_MAX = 16;
+export const NAME_FREE_AFTER_GAMES = 10;
+export const NAME_CHANGE_COST = 1000;
+
+export function cleanName(raw) {
+  return String(raw ?? '').replace(/\s+/g, ' ').trim();
+}
+
+// Geçerliyse null, değilse kullanıcıya gösterilecek hata metni.
+export function validateName(raw) {
+  const name = cleanName(raw);
+  const n = [...name].length;
+  if (n < NAME_MIN) return `Ad en az ${NAME_MIN} karakter olmalı.`;
+  if (n > NAME_MAX) return `Ad en fazla ${NAME_MAX} karakter olabilir.`;
+  if (!/^[\p{L}\p{N} ._-]+$/u.test(name)) return 'Yalnızca harf, rakam, boşluk, nokta, tire ve alt çizgi kullanılabilir.';
+  return null;
+}
+
+// Son ad değişikliğinden bu yana NAME_FREE_AFTER_GAMES oyun oynandıysa değişiklik ücretsizdir,
+// değilse NAME_CHANGE_COST coin karşılığında yapılabilir.
+export function nameChangeStatus({ gamesTotal = 0, nameChangedAt = 0, coins = 0 }) {
+  const since = Math.max(0, gamesTotal - nameChangedAt);
+  const gamesLeft = Math.max(0, NAME_FREE_AFTER_GAMES - since);
+  return { free: gamesLeft === 0, gamesLeft, cost: NAME_CHANGE_COST, canPay: coins >= NAME_CHANGE_COST };
+}

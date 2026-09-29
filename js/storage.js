@@ -5,6 +5,11 @@ const KEY = 'lingo:v1';
 
 const defaults = () => ({
   name: 'Oyuncu',
+  nameSet: false, // ilk açılışta ad sorulana kadar false
+  nameChangedAt: 0, // son ad değişikliğindeki gamesTotal değeri
+  gamesTotal: 0, // biten tüm oyunlar (Zamana Karşı turları dahil)
+  sound: true,
+  haptics: true,
   theme: 'system',
   length: DEFAULT_LENGTH,
   xp: 0,
@@ -25,7 +30,11 @@ const defaults = () => ({
 function read() {
   try {
     const raw = localStorage.getItem(KEY);
-    return raw ? { ...defaults(), ...JSON.parse(raw) } : defaults();
+    if (!raw) return defaults();
+    const saved = JSON.parse(raw);
+    // Eski sürümden gelen profilde oyun sayacı yoksa oynanan oyunlardan başlatılır.
+    if (saved.gamesTotal === undefined) saved.gamesTotal = saved.played || 0;
+    return { ...defaults(), ...saved };
   } catch {
     return defaults();
   }
@@ -88,6 +97,7 @@ export function recordRound({ won, attempts, xp = 0, coins = 0, countsForStats =
   const patch = { xp: state.xp + xp, coins: state.coins + coins };
   if (countsForStats) {
     patch.played = state.played + 1;
+    patch.gamesTotal = state.gamesTotal + 1;
     if (won) {
       patch.wins = state.wins + 1;
       const dist = [...state.distribution];
@@ -107,4 +117,8 @@ export function recordRound({ won, attempts, xp = 0, coins = 0, countsForStats =
     };
   }
   return updateProfile(patch);
+}
+
+export function countGame() {
+  return updateProfile({ gamesTotal: state.gamesTotal + 1 });
 }

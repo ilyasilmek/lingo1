@@ -109,3 +109,30 @@ test('lig eşikleri', () => {
   assert.equal(leagueFor(0), 'Bronz');
   assert.equal(leagueFor(5000), 'Altın');
 });
+
+import { validateName, cleanName, nameChangeStatus, NAME_CHANGE_COST } from '../js/game.js';
+
+test('oyuncu adı doğrulama', () => {
+  assert.equal(validateName('Deniz'), null);
+  assert.equal(validateName('  Ayşe   Nur '), null);
+  assert.equal(cleanName('  Ayşe   Nur '), 'Ayşe Nur');
+  assert.equal(validateName('İlyas_42'), null);
+  assert.match(validateName('a'), /en az/);
+  assert.match(validateName('a'.repeat(17)), /en fazla/);
+  assert.match(validateName('<script>'), /Yalnızca/);
+  assert.match(validateName('   '), /en az/);
+});
+
+test('ad değiştirme: 10 oyun sonra ücretsiz, öncesinde 1000 coin', () => {
+  let st = nameChangeStatus({ gamesTotal: 4, nameChangedAt: 0, coins: 200 });
+  assert.equal(st.free, false);
+  assert.equal(st.gamesLeft, 6);
+  assert.equal(st.canPay, false);
+  st = nameChangeStatus({ gamesTotal: 4, nameChangedAt: 0, coins: NAME_CHANGE_COST });
+  assert.equal(st.canPay, true);
+  st = nameChangeStatus({ gamesTotal: 25, nameChangedAt: 15, coins: 0 });
+  assert.equal(st.free, true);
+  assert.equal(st.gamesLeft, 0);
+  st = nameChangeStatus({ gamesTotal: 25, nameChangedAt: 20, coins: 0 });
+  assert.equal(st.gamesLeft, 5);
+});

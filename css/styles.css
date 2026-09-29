@@ -647,3 +647,28 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   .key.enter .icon { display: none; }
   .key.enter { font-size: 12px; letter-spacing: 0; }
 }
+
+/* Profil: oyuncu adı */
+.name-row { display: flex; align-items: center; gap: 12px; }
+.name-row .name-text { flex: 1; min-width: 0; font-size: 20px; line-height: 26px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.name-row .btn { min-height: 44px; padding: 0 16px; font-size: 14px; }
+.avatar.big { width: 48px; height: 48px; font-size: 20px; flex: none; }
+
+/* Ayarlar: açma/kapama anahtarı */
+.setting-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.setting-row label { display: block; font-weight: 600; }
+.setting-row small { display: block; color: var(--text-2); font-size: 13px; line-height: 18px; }
+.switch {
+  position: relative; flex: none; width: 52px; height: 32px; border-radius: 999px;
+  background: var(--outline-strong); transition: background 0.2s ease;
+}
+.switch span {
+  position: absolute; top: 4px; left: 4px; width: 24px; height: 24px; border-radius: 999px;
+  background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); transition: transform 0.2s ease;
+}
+.switch[aria-checked='true'] { background: var(--primary); }
+.switch[aria-checked='true'] span { transform: translateX(20px); }
+
+/* Ad penceresi */
+.modal .input { width: 100%; }
+.field-error { min-height: 18px; margin: 0 !important; color: var(--danger) !important; font-size: 13px !important; line-height: 18px !important; }

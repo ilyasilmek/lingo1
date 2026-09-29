@@ -3,11 +3,13 @@ import {
   trUpper, isTurkishLetter, evaluateGuess, keyboardStates, knownLetters, pickHint,
   scoreRound, streakMultiplier, dayKey, dayNumber, msUntilMidnight,
   seededShuffle, dailyIndex, leagueFor, levelFor,
+  cleanName, validateName, nameChangeStatus, NAME_MAX, NAME_FREE_AFTER_GAMES,
 } from './game.js';
 import { loadWords } from './wordlist.js';
 import { ICONS } from './icons.js';
+import { feedback } from './feedback.js';
 import {
-  getProfile, updateProfile, resetProfile, quests, currentStreak, recordRound,
+  getProfile, updateProfile, resetProfile, quests, currentStreak, recordRound, countGame,
 } from './storage.js';
 
 const app = document.getElementById('app');
@@ -116,6 +118,102 @@ function dialog({ title, body, actions }) {
     wrap.querySelector('[data-i]').focus();
     onCleanup(() => wrap.isConnected && close(null));
   });
+}
+
+// Ad giriş penceresi. required ise kapatılamaz; ad girilmeden uygulama kullanılamaz.
+// Onaylanırsa temizlenmiş adı, vazgeçilirse null döndürür.
+function nameDialog({ title, body, initial = '', confirmLabel = 'Kaydet', required = false }) {
+  return new Promise((resolve) => {
+    const prev = document.activeElement;
+    const wrap = document.createElement('div');
+    wrap.className = 'modal-backdrop';
+    wrap.innerHTML = `
+      <form class="modal" role="dialog" aria-modal="true" aria-labelledby="name-title" novalidate>
+        <h2 id="name-title">${title}</h2>
+        <p>${body}</p>
+        <input class="input" name="name" maxlength="${NAME_MAX}" autocomplete="nickname"
+          autocapitalize="words" spellcheck="false" placeholder="Oyuncu adın" value="${esc(initial)}">
+        <p class="field-error" role="alert" aria-live="polite"></p>
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-primary btn-block">${confirmLabel}</button>
+          ${required ? '' : '<button type="button" class="btn btn-soft btn-block" data-cancel>Vazgeç</button>'}
+        </div>
+      </form>`;
+    const form = wrap.querySelector('form');
+    const input = form.querySelector('input');
+    const error = form.querySelector('.field-error');
+    const close = (value) => {
+      wrap.remove();
+      document.removeEventListener('keydown', onKey, true);
+      prev?.focus?.();
+      resolve(value);
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape' && !required) { e.stopPropagation(); close(null); }
+    };
+    input.addEventListener('input', () => { error.textContent = ''; });
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const problem = validateName(input.value);
+      if (problem) {
+        error.textContent = problem;
+        feedback.invalid();
+        input.focus();
+        return;
+      }
+      close(cleanName(input.value));
+    });
+    form.querySelector('[data-cancel]')?.addEventListener('click', () => close(null));
+    if (!required) wrap.addEventListener('click', (e) => { if (e.target === wrap) close(null); });
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(wrap);
+    input.focus();
+    input.select();
+    if (!required) onCleanup(() => wrap.isConnected && close(null));
+  });
+}
+
+// İlk açılışta ad sorulur. Veriler sıfırlanınca da yeniden sorulur.
+let askingName = false;
+async function ensureName() {
+  if (askingName || getProfile().nameSet) return;
+  askingName = true;
+  const name = await nameDialog({
+    title: 'Hoş geldin!',
+    body: 'Başlamadan önce sana nasıl hitap edelim? Adın yalnızca bu cihazda saklanır.',
+    confirmLabel: 'Başla',
+    required: true,
+  });
+  const p = getProfile();
+  updateProfile({ name, nameSet: true, nameChangedAt: p.gamesTotal });
+  askingName = false;
+  toast(`Merhaba ${name}!`);
+  render();
+}
+
+async function changeName() {
+  const p = getProfile();
+  const st = nameChangeStatus(p);
+  if (!st.free && !st.canPay) return;
+  const name = await nameDialog({
+    title: 'Adını değiştir',
+    body: st.free
+      ? 'Yeni adını yaz. Bu değişiklik ücretsiz.'
+      : `Yeni adını yaz. Bu değişiklik <b>${fmt(st.cost)} coin</b> tutar. Bakiyen: ${fmt(p.coins)} coin.`,
+    initial: p.name,
+    confirmLabel: st.free ? 'Kaydet' : `${fmt(st.cost)} coin öde ve kaydet`,
+  });
+  if (!name) return;
+  if (name === p.name) return toast('Ad aynı kaldı');
+  const now = getProfile();
+  updateProfile({
+    name,
+    nameChangedAt: now.gamesTotal,
+    coins: st.free ? now.coins : now.coins - st.cost,
+  });
+  feedback.hint();
+  toast(st.free ? 'Adın değişti' : `Adın değişti, ${fmt(st.cost)} coin harcandı`);
+  render();
 }
 
 // Klasik mod: yarım kalan oyun varsa önce sorar.
@@ -647,6 +745,12 @@ function updateTimer() {
     const left = (session.deadline - Date.now()) / 1000;
     text.textContent = clock(Math.ceil(left));
     timer.classList.toggle('low', left <= 10);
+    // Son 5 saniyede her saniye kısa bir tık sesi
+    const whole = Math.ceil(left);
+    if (whole <= 5 && whole > 0 && whole !== session.lastTick) {
+      session.lastTick = whole;
+      feedback.tick();
+    }
     paintProgress();
     if (left <= 0 && !session.finished) finishTimeAttack();
   } else if (!session.finished) {
@@ -660,12 +764,14 @@ function handleKey(key) {
   if (key === 'BACKSPACE') {
     if (session.current.length > 1) {
       session.current.pop();
+      feedback.erase();
       paintBoard();
     }
     return;
   }
   if (session.current.length >= session.length) return;
   session.current.push(key);
+  feedback.key();
   paintBoard();
   const tile = rowEl(session.guesses.length)?.querySelectorAll('.tile')[session.current.length - 1];
   if (tile) {
@@ -680,6 +786,7 @@ function shakeRow(message) {
   row.classList.remove('shake');
   void row.offsetWidth;
   row.classList.add('shake');
+  feedback.invalid();
   toast(message);
 }
 
@@ -699,6 +806,8 @@ function submitGuess() {
   const tiles = row.querySelectorAll('.tile');
   const letters = [...guess];
   const step = n > 6 ? 180 : 250;
+  feedback.submit();
+  evaluation.forEach((st, c) => feedback.reveal(st, c, step));
   tiles.forEach((tile, c) => {
     const back = tile.querySelector('.back');
     back.textContent = letters[c];
@@ -729,8 +838,10 @@ function submitGuess() {
     if (session.mode === 'time') return afterTimeGuess(won, lost);
     if (won) {
       row.classList.add('win');
+      feedback.win();
       setTimeout(() => finishRound(), 900);
     } else if (lost) {
+      feedback.lose();
       toast(session.answer, 2500);
       setTimeout(() => finishRound(), 1400);
     } else {
@@ -751,6 +862,7 @@ function useHint() {
     updateProfile({ coins: p.coins - HINT_COST });
   }
   session.hints.push(idx);
+  feedback.hint();
   toast(`${idx + 1}. harf: ${[...session.answer][idx]}`);
   saveProgress();
   paintHint();
@@ -801,10 +913,12 @@ function afterTimeGuess(won, lost) {
     s.totalScore += r.score + r.speedBonus;
     s.solved.push({ word: s.answer, attempts: s.guesses.length });
     rowEl(s.guesses.length - 1).classList.add('win');
+    feedback.win();
     toast(`+${fmt(r.score + r.speedBonus)} puan`);
     setTimeout(nextTimeWord, 700);
   } else if (lost) {
     s.missed.push(s.answer);
+    feedback.lose();
     toast(`Kaçtı: ${s.answer}`);
     setTimeout(nextTimeWord, 900);
   } else {
@@ -846,6 +960,8 @@ function finishTimeAttack() {
   const best = Math.max(p.timeAttackBest, s.totalScore);
   updateProfile({ xp: p.xp + s.totalScore, coins: p.coins + coins, timeAttackBest: best });
   s.solved.forEach((w) => recordRound({ won: true, attempts: w.attempts, countsForStats: false }));
+  countGame();
+  feedback.timeUp();
   lastResult = {
     mode: 'time',
     solved: s.solved,
@@ -1034,15 +1150,35 @@ function renderStats() {
 
 function renderProfile() {
   const p = getProfile();
+  const st = nameChangeStatus(p);
+  const nameHint = st.free
+    ? 'Adını ücretsiz değiştirebilirsin.'
+    : `Ücretsiz değişiklik için ${st.gamesLeft} oyun daha oyna ya da ${fmt(st.cost)} coin öde. Bakiyen: ${fmt(p.coins)} coin.`;
+  const nameButton = st.free
+    ? `<button class="btn btn-soft" id="change-name">${icon('edit')}Değiştir</button>`
+    : `<button class="btn btn-soft" id="change-name" ${st.canPay ? '' : 'disabled'}>${icon('paid')}${fmt(st.cost)} coin</button>`;
+  const toggle = (id, label, desc, on) => `
+    <div class="setting-row">
+      <div><label for="${id}">${label}</label><small>${desc}</small></div>
+      <button class="switch" id="${id}" role="switch" aria-checked="${on}"><span></span></button>
+    </div>`;
   app.innerHTML = `
   ${headerHome(p)}
   <main class="page">
     <h2 style="margin:0;font-size:28px;line-height:36px">Profil</h2>
-    <section class="card" style="display:flex;flex-direction:column;gap:16px">
-      <div class="field">
-        <label for="name">Oyuncu adı</label>
-        <input id="name" class="input" maxlength="20" value="${esc(p.name)}" autocomplete="nickname">
+    <section class="card" style="display:flex;flex-direction:column;gap:10px">
+      <span class="small muted">OYUNCU ADI</span>
+      <div class="name-row">
+        <span class="avatar big">${esc(initials(p.name))}</span>
+        <strong class="name-text">${esc(p.name)}</strong>
+        ${nameButton}
       </div>
+      <p class="muted" style="margin:0">${nameHint}</p>
+    </section>
+    <section class="card" style="display:flex;flex-direction:column;gap:16px">
+      <h2 style="font-size:18px">Ayarlar</h2>
+      ${toggle('sound-toggle', 'Oyun sesleri', 'Tuş, kazanma ve kaybetme sesleri', p.sound)}
+      ${toggle('haptics-toggle', 'Titreşim', 'Harflere basınca hafif titreşim', p.haptics)}
       <div class="field">
         <label id="theme-label">Tema</label>
         <div class="segmented" role="group" aria-labelledby="theme-label">
@@ -1061,6 +1197,7 @@ function renderProfile() {
         <li><b>Mavi-gri</b>: harf kelimede yok.</li>
         <li>Tahminler TDK Güncel Türkçe Sözlük'teki kelimelerden olmalı.</li>
         <li>Her kelimede bir ipucu bedava. Sonrakiler ${HINT_COST} coin.</li>
+        <li>Oyuncu adını her ${NAME_FREE_AFTER_GAMES} oyunda bir ücretsiz değiştirebilirsin; beklemek istemezsen coin ödersin.</li>
       </ul>
     </section>
     <button class="btn btn-ghost" id="reset" style="color:var(--danger)">${icon('delete')}Tüm verileri sıfırla</button>
@@ -1068,11 +1205,15 @@ function renderProfile() {
   ${bottomNav('profile')}`;
 
   bindCommon();
-  const name = app.querySelector('#name');
-  name.addEventListener('change', () => {
-    updateProfile({ name: name.value.trim() || 'Oyuncu' });
-    render();
-  });
+  app.querySelector('#change-name').addEventListener('click', changeName);
+  for (const [id, key] of [['sound-toggle', 'sound'], ['haptics-toggle', 'haptics']]) {
+    app.querySelector(`#${id}`).addEventListener('click', (e) => {
+      const on = !getProfile()[key];
+      updateProfile({ [key]: on });
+      e.currentTarget.setAttribute('aria-checked', String(on));
+      if (on) feedback.preview(key);
+    });
+  }
   app.querySelectorAll('[data-theme]').forEach((b) => b.addEventListener('click', () => {
     updateProfile({ theme: b.dataset.theme });
     applyTheme(b.dataset.theme);
@@ -1107,6 +1248,7 @@ function render() {
   session = null;
   window.scrollTo(0, 0);
   view();
+  ensureName();
 }
 
 applyTheme(getProfile().theme);
