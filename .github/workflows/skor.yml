@@ -8,11 +8,6 @@ name: Skor sunucusu
 
 on:
   workflow_dispatch:
-    inputs:
-      veritabanini_avrupaya_tasi:
-        description: 'BOŞ veritabanını silip Doğu Avrupa bölgesinde yeniden kur (içinde kayıt varsa işlem durur)'
-        type: boolean
-        default: false
   push:
     branches: [main, 'claude/**']
     paths:
@@ -58,54 +53,6 @@ jobs:
           else
             echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
-
-      - name: Boş veritabanını Avrupa'ya taşı
-        if: steps.check.outputs.ready == 'true' && inputs.veritabanini_avrupaya_tasi
-        working-directory: server
-        run: |
-          set -o pipefail
-          OLD_ID=$(npx wrangler d1 list --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const db=JSON.parse(s).find(d=>d.name==="lingo-skor");process.stdout.write(db?db.uuid:"")})')
-          if [ -z "$OLD_ID" ]; then
-            echo "Veritabanı yok, taşınacak bir şey yok."
-            exit 0
-          fi
-          echo "Taşınacak veritabanı: $OLD_ID"
-          # Sayım komutu wrangler.toml'daki kimliği kullanır; gerçek kimlik yazılmadan sorgu yanlış veritabanına gider.
-          sed -i "s/^database_id = .*/database_id = \"$OLD_ID\"/" wrangler.toml
-          set +e
-          for i in 1 2 3; do
-            npx wrangler d1 execute lingo-skor --remote --json --command "SELECT (SELECT COUNT(*) FROM players) + (SELECT COUNT(*) FROM scores) AS n" > count.json 2> count.err
-            rc=$?
-            echo "Deneme $i, çıkış kodu $rc"; echo "Ham çıktı:"; cat count.json; echo; cat count.err
-            [ $rc -eq 0 ] && break
-            sleep 10
-          done
-          set -e
-          if [ $rc -ne 0 ]; then echo "::error::Kayıt sayısı alınamadı, taşıma durduruldu. Hiçbir şey silinmedi."; exit 1; fi
-          # Çıktı liste ya da tek nesne olabilir; 'n' değeri nerede olursa bulunur. Bulunamazsa işlem durur.
-          N=$(node -e '
-            const raw = require("fs").readFileSync("count.json", "utf8");
-            const start = raw.search(/[\[{]/);
-            const j = JSON.parse(raw.slice(start));
-            const find = (x) => {
-              if (Array.isArray(x)) { for (const v of x) { const r = find(v); if (r !== undefined) return r; } return undefined; }
-              if (x && typeof x === "object") {
-                if (typeof x.n === "number") return x.n;
-                for (const v of Object.values(x)) { const r = find(v); if (r !== undefined) return r; }
-              }
-              return undefined;
-            };
-            const n = find(j);
-            if (n === undefined) { console.error("Kayıt sayısı okunamadı"); process.exit(1); }
-            process.stdout.write(String(n));
-          ')
-          echo "Veritabanındaki kayıt sayısı: $N"
-          if [ "$N" != "0" ]; then
-            echo "::error::Veritabanında $N kayıt var. Veri kaybolmasın diye taşıma durduruldu."
-            exit 1
-          fi
-          npx wrangler d1 delete lingo-skor --skip-confirmation
-          echo "Boş veritabanı silindi; aşağıdaki adım Doğu Avrupa'da yenisini kuracak."
 
       - name: D1 veritabanını bul ya da oluştur
         if: steps.check.outputs.ready == 'true'
