@@ -68,8 +68,16 @@ jobs:
             echo "Veritabanı yok, taşınacak bir şey yok."
             exit 0
           fi
-          npx wrangler d1 execute lingo-skor --remote --json --command "SELECT (SELECT COUNT(*) FROM players) + (SELECT COUNT(*) FROM scores) AS n" > count.json
-          echo "Ham çıktı:"; cat count.json; echo
+          set +e
+          for i in 1 2 3; do
+            npx wrangler d1 execute lingo-skor --remote --json --command "SELECT (SELECT COUNT(*) FROM players) + (SELECT COUNT(*) FROM scores) AS n" > count.json 2> count.err
+            rc=$?
+            echo "Deneme $i, çıkış kodu $rc"; echo "Ham çıktı:"; cat count.json; echo; cat count.err
+            [ $rc -eq 0 ] && break
+            sleep 10
+          done
+          set -e
+          if [ $rc -ne 0 ]; then echo "::error::Kayıt sayısı alınamadı, taşıma durduruldu. Hiçbir şey silinmedi."; exit 1; fi
           # Çıktı liste ya da tek nesne olabilir; 'n' değeri nerede olursa bulunur. Bulunamazsa işlem durur.
           N=$(node -e '
             const raw = require("fs").readFileSync("count.json", "utf8");
