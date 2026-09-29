@@ -499,7 +499,8 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .meaning { margin-top: 14px; background: var(--surface-low); border-radius: 12px; padding: 12px 14px; }
 .meaning .small { display: flex; align-items: center; gap: 6px; color: var(--text-2); margin-bottom: 4px; text-transform: uppercase; }
 .meaning p { margin: 0; font-size: 16px; line-height: 24px; }
-.meaning a { color: var(--primary-ink); font-weight: 600; }
+.meaning ol { margin: 4px 0 0; padding-left: 22px; font-size: 16px; line-height: 24px; }
+.meaning li + li { margin-top: 4px; }
 
 .kv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .kv { background: var(--surface); border-radius: var(--radius-card); box-shadow: var(--shadow-1); padding: 12px; display: flex; align-items: center; gap: 10px; }

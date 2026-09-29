@@ -5,7 +5,6 @@ import {
   evaluateGuess, keyboardStates, knownLetters, pickHint, scoreRound, shareText, trUpper,
   dailyIndex, seededShuffle, leagueFor, ALPHABET, KEYBOARD_ROWS, MIN_LENGTH, MAX_LENGTH,
 } from '../js/game.js';
-import { MEANINGS } from '../js/words.js';
 
 const list = (name) => readFileSync(new URL(`../data/${name}.txt`, import.meta.url), 'utf8').split('\n').filter(Boolean);
 
@@ -95,9 +94,14 @@ test('kelime listeleri: doğru uzunluk, Türkçe alfabe, cevaplar geçerli liste
   }
 });
 
-test('açıklaması yazılmış kelimeler TDK listesinde', () => {
-  const valid = new Set(list('valid-5'));
-  for (const w of Object.keys(MEANINGS)) assert.ok(valid.has(w), w);
+test('her cevap kelimesinin en az bir anlamı var', () => {
+  for (let n = MIN_LENGTH; n <= MAX_LENGTH; n++) {
+    const meanings = JSON.parse(readFileSync(new URL(`../data/meanings-${n}.json`, import.meta.url), 'utf8'));
+    for (const w of list(`answers-${n}`)) {
+      assert.ok(Array.isArray(meanings[w]) && meanings[w].length > 0, `${w} anlamsız`);
+      for (const m of meanings[w]) assert.ok(m.length >= 8, `${w}: "${m}"`);
+    }
+  }
 });
 
 test('klavye alfabenin tamamını kapsıyor', () => {

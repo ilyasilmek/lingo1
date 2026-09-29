@@ -4,7 +4,6 @@ import {
   scoreRound, streakMultiplier, shareText, dayKey, dayNumber, msUntilMidnight,
   seededShuffle, dailyIndex, leagueFor, levelFor,
 } from './game.js';
-import { MEANINGS } from './words.js';
 import { loadWords } from './wordlist.js';
 import { ICONS } from './icons.js';
 import {
@@ -15,7 +14,6 @@ const app = document.getElementById('app');
 const toasts = document.getElementById('toasts');
 const HINT_COST = 25;
 const DAILY_REWARD_FACTOR = 2;
-const TDK_URL = 'https://sozluk.gov.tr/';
 
 // Ekran değişince temizlenecek zamanlayıcı ve dinleyiciler.
 let cleanups = [];
@@ -787,6 +785,7 @@ function buildResult(s, { alreadyRecorded }) {
     seconds,
     guesses: s.guesses,
     evaluations: s.evaluations,
+    meanings: s.words.meanings[s.answer] || [],
     reward,
     streak: currentStreak(),
     alreadyRecorded,
@@ -852,6 +851,7 @@ function finishTimeAttack() {
     solved: s.solved,
     missed: s.missed,
     current: s.answer,
+    currentMeanings: s.words.meanings[s.answer] || [],
     totalScore: s.totalScore,
     coins,
     isBest: s.totalScore > 0 && s.totalScore > p.timeAttackBest,
@@ -861,21 +861,16 @@ function finishTimeAttack() {
 
 // ---------- Sonuç ----------
 
-function meaningBlock(word) {
-  const meaning = MEANINGS[word];
+function meaningBlock(word, meanings = []) {
+  if (!meanings.length) return '';
   const title = `${word.charAt(0)}${word.slice(1).toLocaleLowerCase('tr-TR')}`;
-  if (meaning) {
-    return `
-      <div class="meaning">
-        <div class="small">${icon('menu_book')}Anlamı</div>
-        <p><b>${esc(title)}:</b> ${esc(meaning)}</p>
-      </div>`;
-  }
+  const body = meanings.length === 1
+    ? `<p><b>${esc(title)}:</b> ${esc(meanings[0])}</p>`
+    : `<p><b>${esc(title)}</b></p><ol>${meanings.map((m) => `<li>${esc(m)}</li>`).join('')}</ol>`;
   return `
     <div class="meaning">
       <div class="small">${icon('menu_book')}Anlamı</div>
-      <p><b>${esc(title)}</b> kelimesinin açıklaması uygulamada yok.
-      <a href="${TDK_URL}" target="_blank" rel="noopener">TDK Güncel Türkçe Sözlük</a>'te arayabilirsin.</p>
+      ${body}
     </div>`;
 }
 
@@ -906,7 +901,7 @@ function renderResult() {
       <div class="answer-tiles ${r.won ? '' : 'lost'}" style="--n:${n}">
         ${[...r.answer].map((ch, i) => `<span style="animation-delay:${i * 80}ms">${ch}</span>`).join('')}
       </div>
-      ${meaningBlock(r.answer)}
+      ${meaningBlock(r.answer, r.meanings)}
     </section>
 
     <section class="kv-grid">
@@ -967,7 +962,7 @@ function renderTimeResult(r) {
       ${r.solved.map((w) => `<div class="quest-row"><span>${w.word}</span><span class="badge mint">${w.attempts}. deneme</span></div>`).join('')}
       ${r.missed.map((w) => `<div class="quest-row"><span>${w}</span><span class="badge">Kaçtı</span></div>`).join('')}
       <div class="quest-row"><span class="muted">Yarım kalan: ${r.current}</span></div>
-      ${MEANINGS[r.current] ? `<p class="muted" style="margin:0">${esc(MEANINGS[r.current])}</p>` : ''}
+      ${meaningBlock(r.current, r.currentMeanings)}
     </section>
     <button class="btn btn-primary btn-block" data-go="#/oyna/zaman">${icon('replay')}TEKRAR OYNA</button>
     <button class="btn btn-ghost" data-go="#/">${icon('home')}Ana Menüye Dön</button>
