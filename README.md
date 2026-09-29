@@ -61,22 +61,32 @@ Takıldığında ampul simgesine basıp bir harf açtırabilirsin. İpucu 4. tah
 
 <table>
   <tr>
-    <td align="center"><img src="docs/ekranlar/01-ana-sayfa.png" width="200" alt=""><br>Ana sayfa ve günün kelimesi</td>
-    <td align="center"><img src="docs/ekranlar/02-oyun-modlari.png" width="200" alt=""><br>Kelime uzunluğu ve oyun modları</td>
-    <td align="center"><img src="docs/ekranlar/03-oyun-alani.png" width="200" alt=""><br>5 harfli oyun, üçüncü tahmin</td>
+    <td align="center" width="33%"><img src="docs/ekranlar/11-hos-geldin.png" width="200" alt="İlk açılışta oyuncu adı"><br>İlk açılışta oyuncu adı</td>
+    <td align="center" width="33%"><img src="docs/ekranlar/01-ana-sayfa.png" width="200" alt="Ana sayfa ve günün kelimesi"><br>Ana sayfa ve günün kelimesi</td>
+    <td align="center" width="33%"><img src="docs/ekranlar/02-oyun-modlari.png" width="200" alt="Kelime uzunluğu ve oyun modları"><br>Kelime uzunluğu ve oyun modları</td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/ekranlar/04-sekiz-harf.png" width="200" alt=""><br>8 harfli tahta</td>
-    <td align="center"><img src="docs/ekranlar/05-devam-penceresi.png" width="200" alt=""><br>Yarım kalan oyuna devam</td>
-    <td align="center"><img src="docs/ekranlar/06-zafer.png" width="200" alt=""><br>Kazanma ve kelimenin anlamı</td>
+    <td align="center" width="33%"><img src="docs/ekranlar/03-oyun-alani.png" width="200" alt="5 harfli oyun, üçüncü tahmin"><br>5 harfli oyun, üçüncü tahmin</td>
+    <td align="center" width="33%"><img src="docs/ekranlar/04-sekiz-harf.png" width="200" alt="8 harfli tahta"><br>8 harfli tahta</td>
+    <td align="center" width="33%"><img src="docs/ekranlar/15-zor-mod.png" width="200" alt="Zor mod uyarısı"><br>Zor mod uyarısı</td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/ekranlar/07-kaybetme.png" width="200" alt=""><br>Kaybetme ekranı</td>
-    <td align="center"><img src="docs/ekranlar/08-zamana-karsi.png" width="200" alt=""><br>Zamana Karşı, koyu tema</td>
-    <td align="center"><img src="docs/ekranlar/09-istatistik.png" width="200" alt=""><br>İstatistikler</td>
+    <td align="center" width="33%"><img src="docs/ekranlar/05-devam-penceresi.png" width="200" alt="Yarım kalan oyuna devam"><br>Yarım kalan oyuna devam</td>
+    <td align="center" width="33%"><img src="docs/ekranlar/06-zafer.png" width="200" alt="Kazanma ve kelimenin anlamı"><br>Kazanma ve kelimenin anlamı</td>
+    <td align="center" width="33%"><img src="docs/ekranlar/07-kaybetme.png" width="200" alt="Kaybetme ekranı"><br>Kaybetme ekranı</td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/ekranlar/10-profil.png" width="200" alt=""><br>Profil, tema ve kurallar</td>
+    <td align="center" width="33%"><img src="docs/ekranlar/14-yeni-rozet.png" width="200" alt="Yeni rozet kazanma"><br>Yeni rozet kazanma</td>
+    <td align="center" width="33%"><img src="docs/ekranlar/08-zamana-karsi.png" width="200" alt="Zamana Karşı, koyu tema"><br>Zamana Karşı, koyu tema</td>
+    <td align="center" width="33%"><img src="docs/ekranlar/12-arsiv.png" width="200" alt="Geçmiş günlerin kelimeleri"><br>Geçmiş günlerin kelimeleri</td>
+  </tr>
+  <tr>
+    <td align="center" width="33%"><img src="docs/ekranlar/09-istatistik.png" width="200" alt="İstatistikler"><br>İstatistikler</td>
+    <td align="center" width="33%"><img src="docs/ekranlar/16-uzunluk-istatistik.png" width="200" alt="Uzunluğa göre istatistik"><br>Uzunluğa göre istatistik</td>
+    <td align="center" width="33%"><img src="docs/ekranlar/13-rozetler.png" width="200" alt="Rozetler"><br>Rozetler</td>
+  </tr>
+  <tr>
+    <td align="center" width="33%"><img src="docs/ekranlar/10-profil.png" width="200" alt="Profil, mağaza ve ayarlar"><br>Profil, mağaza ve ayarlar</td>
     <td></td>
     <td></td>
   </tr>
