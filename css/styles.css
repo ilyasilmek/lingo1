@@ -560,3 +560,72 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
   .confetti { display: none; }
 }
+
+/* Ana sayfa kartları için pastel zeminler.
+   Her kartın rengi kendi ikon/rozet renginden gelir; zemin açık, kenar bir ton koyu. */
+:root {
+  --tint-apricot-bg: #fff1e8; --tint-apricot-bd: #ffd6bf;
+  --tint-mint-bg: #e6f8ef;    --tint-mint-bd: #b9ebd2;
+  --tint-amber-bg: #fff5da;   --tint-amber-bd: #f7dc9c;
+  --tint-lilac-bg: #f2ecff;   --tint-lilac-bd: #d9ccfa;
+  --tint-sky-bg: #e7f1ff;     --tint-sky-bd: #c4d9fa;
+  --tint-rose-bg: #ffedf2;    --tint-rose-bd: #f8cad8;
+  --tint-aqua-bg: #e4f6f8;    --tint-aqua-bd: #b5e2e8;
+  --tint-sand-bg: #f6f1ea;    --tint-sand-bd: #e2d6c5;
+  --tint-sage-bg: #eef5e6;    --tint-sage-bd: #cfe2bb;
+  --tint-dot: rgba(255, 255, 255, 0.75);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --tint-apricot-bg: #33221a; --tint-apricot-bd: #56372a;
+    --tint-mint-bg: #12302a;    --tint-mint-bd: #1f4d41;
+    --tint-amber-bg: #332a15;   --tint-amber-bd: #574621;
+    --tint-lilac-bg: #261f3d;   --tint-lilac-bd: #3f3563;
+    --tint-sky-bg: #16273f;     --tint-sky-bd: #273f63;
+    --tint-rose-bg: #341b26;    --tint-rose-bd: #582d3e;
+    --tint-aqua-bg: #122d33;    --tint-aqua-bd: #1f4a53;
+    --tint-sand-bg: #2c2620;    --tint-sand-bd: #4a4035;
+    --tint-sage-bg: #1e2b19;    --tint-sage-bd: #36492c;
+    --tint-dot: rgba(15, 23, 42, 0.45);
+  }
+}
+:root[data-theme='dark'] {
+  --tint-apricot-bg: #33221a; --tint-apricot-bd: #56372a;
+  --tint-mint-bg: #12302a;    --tint-mint-bd: #1f4d41;
+  --tint-amber-bg: #332a15;   --tint-amber-bd: #574621;
+  --tint-lilac-bg: #261f3d;   --tint-lilac-bd: #3f3563;
+  --tint-sky-bg: #16273f;     --tint-sky-bd: #273f63;
+  --tint-rose-bg: #341b26;    --tint-rose-bd: #582d3e;
+  --tint-aqua-bg: #122d33;    --tint-aqua-bd: #1f4a53;
+  --tint-sand-bg: #2c2620;    --tint-sand-bd: #4a4035;
+  --tint-sage-bg: #1e2b19;    --tint-sage-bd: #36492c;
+  --tint-dot: rgba(15, 23, 42, 0.45);
+}
+
+.tint { background: var(--tint-bg); border: 1.5px solid var(--tint-bd); box-shadow: none; }
+.tint .dot, .tint .mode-icon { background: var(--tint-dot); }
+.tint-apricot { --tint-bg: var(--tint-apricot-bg); --tint-bd: var(--tint-apricot-bd); }
+.tint-mint    { --tint-bg: var(--tint-mint-bg);    --tint-bd: var(--tint-mint-bd); }
+.tint-amber   { --tint-bg: var(--tint-amber-bg);   --tint-bd: var(--tint-amber-bd); }
+.tint-lilac   { --tint-bg: var(--tint-lilac-bg);   --tint-bd: var(--tint-lilac-bd); }
+.tint-sky     { --tint-bg: var(--tint-sky-bg);     --tint-bd: var(--tint-sky-bd); }
+.tint-rose    { --tint-bg: var(--tint-rose-bg);    --tint-bd: var(--tint-rose-bd); }
+.tint-aqua    { --tint-bg: var(--tint-aqua-bg);    --tint-bd: var(--tint-aqua-bd); }
+.tint-sand    { --tint-bg: var(--tint-sand-bg);    --tint-bd: var(--tint-sand-bd); }
+.tint-sage    { --tint-bg: var(--tint-sage-bg);    --tint-bd: var(--tint-sage-bd); }
+.mode.tint:not(:disabled):hover { box-shadow: var(--shadow-2); border-color: color-mix(in srgb, var(--tint-bd) 60%, var(--text-3)); }
+.tint .length-options { background: var(--tint-dot); }
+.tint .bar { background: var(--tint-dot); }
+.lilac-ink { color: #6b4fc7; }
+.sky-ink { color: #2f64b8; }
+.rose-ink { color: #b23a62; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .lilac-ink { color: #b9a5f5; }
+  :root:not([data-theme='light']) .sky-ink { color: #8fb6f2; }
+  :root:not([data-theme='light']) .rose-ink { color: #f19ab7; }
+}
+:root[data-theme='dark'] .lilac-ink { color: #b9a5f5; }
+:root[data-theme='dark'] .sky-ink { color: #8fb6f2; }
+:root[data-theme='dark'] .rose-ink { color: #f19ab7; }
+.badge.tint-chip { background: var(--tint-dot); }
+.mode.tint:disabled { opacity: 0.7; }

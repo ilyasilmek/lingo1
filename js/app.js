@@ -250,9 +250,9 @@ function renderHome() {
     </section>
 
     <section class="stat-grid" aria-label="Özet">
-      <div class="stat"><span class="dot primary">${icon('local_fire_department')}</span><strong>${currentStreak()} Gün</strong><small>Seri</small></div>
-      <div class="stat"><span class="dot mint">${icon('donut_large')}</span><strong>%${winRate}</strong><small>Galibiyet</small></div>
-      <div class="stat"><span class="dot amber">${icon('trophy')}</span><strong>${leagueFor(p.xp)}</strong><small>Mevcut lig</small></div>
+      <div class="stat tint tint-apricot"><span class="dot primary">${icon('local_fire_department')}</span><strong>${currentStreak()} Gün</strong><small>Seri</small></div>
+      <div class="stat tint tint-mint"><span class="dot mint">${icon('donut_large')}</span><strong>%${winRate}</strong><small>Galibiyet</small></div>
+      <div class="stat tint tint-amber"><span class="dot amber">${icon('trophy')}</span><strong>${leagueFor(p.xp)}</strong><small>Mevcut lig</small></div>
     </section>
 
     <section aria-labelledby="modes-title" style="display:flex;flex-direction:column;gap:10px">
@@ -260,40 +260,40 @@ function renderHome() {
         <h2 id="modes-title">Oyun Modları</h2>
         <span class="badge">Seviye ${levelFor(p.xp)}</span>
       </div>
-      <div class="card tight length-picker">
-        <span id="length-label" class="small muted">KELİME UZUNLUĞU</span>
+      <div class="card tight length-picker tint tint-lilac">
+        <span id="length-label" class="small lilac-ink">KELİME UZUNLUĞU</span>
         <div class="length-options" role="radiogroup" aria-labelledby="length-label">
           ${Array.from({ length: MAX_LENGTH - MIN_LENGTH + 1 }, (_, i) => MIN_LENGTH + i).map((k) => `
             <button role="radio" aria-checked="${k === n}" data-length="${k}">${k}</button>`).join('')}
         </div>
       </div>
       <div class="modes">
-        <button class="mode" data-classic>
-          <div class="mode-top"><span class="mode-icon dot mint">${icon('spellcheck')}</span><span class="badge mint">${saved ? 'Yarım kaldı' : 'Stratejik'}</span></div>
+        <button class="mode tint tint-sky" data-classic>
+          <div class="mode-top"><span class="mode-icon dot sky-ink">${icon('spellcheck')}</span><span class="badge tint-chip sky-ink">${saved ? 'Yarım kaldı' : 'Stratejik'}</span></div>
           <h3>Klasik ${n} Harf</h3>
           <p>${saved ? `${len(saved.answer)} harfli oyunun seni bekliyor.` : '6 tahmin hakkı, süre yok. İlk harf açık gelir.'}</p>
-          <span class="mode-cta mint">${saved ? 'Devam Et' : 'Hemen Başla'} ${icon('arrow_forward')}</span>
+          <span class="mode-cta sky-ink">${saved ? 'Devam Et' : 'Hemen Başla'} ${icon('arrow_forward')}</span>
         </button>
-        <button class="mode" data-go="#/oyna/zaman">
-          <div class="mode-top"><span class="mode-icon dot primary">${icon('timer')}</span><span class="badge primary">Turbo hız</span></div>
+        <button class="mode tint tint-rose" data-go="#/oyna/zaman">
+          <div class="mode-top"><span class="mode-icon dot rose-ink">${icon('timer')}</span><span class="badge tint-chip rose-ink">Turbo hız</span></div>
           <h3>Zamana Karşı</h3>
           <p>${TIME_ATTACK_SECONDS} saniyede ${n} harfli kelimelerden bildiğin kadar. En iyin: ${fmt(p.timeAttackBest)} puan.</p>
-          <span class="mode-cta primary">Hemen Başla ${icon('arrow_forward')}</span>
+          <span class="mode-cta rose-ink">Hemen Başla ${icon('arrow_forward')}</span>
         </button>
-        <button class="mode" disabled aria-disabled="true">
-          <div class="mode-top"><span class="mode-icon dot blue">${icon('swords')}</span><span class="badge">Yakında</span></div>
+        <button class="mode tint tint-aqua" disabled aria-disabled="true">
+          <div class="mode-top"><span class="mode-icon dot">${icon('swords')}</span><span class="badge tint-chip">Yakında</span></div>
           <h3>Düello PvP</h3>
           <p>Canlı 1'e 1 eşleşme. Sunucu tarafı henüz yok.</p>
         </button>
-        <button class="mode" disabled aria-disabled="true">
-          <div class="mode-top"><span class="mode-icon dot blue">${icon('meeting_room')}</span><span class="badge">Yakında</span></div>
+        <button class="mode tint tint-sand" disabled aria-disabled="true">
+          <div class="mode-top"><span class="mode-icon dot">${icon('meeting_room')}</span><span class="badge tint-chip">Yakında</span></div>
           <h3>Özel Oda</h3>
           <p>Oda kodu ile arkadaşlarınla oyna.</p>
         </button>
       </div>
     </section>
 
-    <section class="card" aria-labelledby="quests-title" style="display:flex;flex-direction:column;gap:14px">
+    <section class="card tint tint-sage" aria-labelledby="quests-title" style="display:flex;flex-direction:column;gap:14px">
       <div class="section-head">
         <h2 id="quests-title">${icon('task_alt')}Günlük Görevler</h2>
         <span class="muted small">Yenilenme: <span id="quest-reset">${hms(msUntilMidnight()).slice(0, 5)}</span></span>
