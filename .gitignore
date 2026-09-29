@@ -7,3 +7,4 @@ keystore.properties
 .wrangler/
 server/.wrangler/
 server/deploy.log
+server/count.json

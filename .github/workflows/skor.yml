@@ -68,7 +68,25 @@ jobs:
             echo "Veritabanı yok, taşınacak bir şey yok."
             exit 0
           fi
-          N=$(npx wrangler d1 execute lingo-skor --remote --json --command "SELECT (SELECT COUNT(*) FROM players) + (SELECT COUNT(*) FROM scores) AS n" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(String(JSON.parse(s)[0].results[0].n)))')
+          npx wrangler d1 execute lingo-skor --remote --json --command "SELECT (SELECT COUNT(*) FROM players) + (SELECT COUNT(*) FROM scores) AS n" > count.json
+          echo "Ham çıktı:"; cat count.json; echo
+          # Çıktı liste ya da tek nesne olabilir; 'n' değeri nerede olursa bulunur. Bulunamazsa işlem durur.
+          N=$(node -e '
+            const raw = require("fs").readFileSync("count.json", "utf8");
+            const start = raw.search(/[\[{]/);
+            const j = JSON.parse(raw.slice(start));
+            const find = (x) => {
+              if (Array.isArray(x)) { for (const v of x) { const r = find(v); if (r !== undefined) return r; } return undefined; }
+              if (x && typeof x === "object") {
+                if (typeof x.n === "number") return x.n;
+                for (const v of Object.values(x)) { const r = find(v); if (r !== undefined) return r; }
+              }
+              return undefined;
+            };
+            const n = find(j);
+            if (n === undefined) { console.error("Kayıt sayısı okunamadı"); process.exit(1); }
+            process.stdout.write(String(n));
+          ')
           echo "Veritabanındaki kayıt sayısı: $N"
           if [ "$N" != "0" ]; then
             echo "::error::Veritabanında $N kayıt var. Veri kaybolmasın diye taşıma durduruldu."
