@@ -510,12 +510,6 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .kv strong.primary { color: var(--primary-ink); }
 .kv strong.mint { color: var(--correct-ink); }
 
-.share-grid { display: flex; flex-direction: column; gap: 4px; align-items: center; background: var(--surface-low); border-radius: 12px; padding: 12px; }
-.share-grid div { display: flex; gap: 4px; }
-.share-grid span { width: 26px; height: 26px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; }
-.share-grid .correct { background: var(--correct-bg); color: #fff; }
-.share-grid .present { background: var(--present-bg); color: #fff; }
-.share-grid .absent { background: var(--absent-bg); color: var(--absent-fg); }
 
 /* Konfeti */
 .confetti { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 40; }

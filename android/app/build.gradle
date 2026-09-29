@@ -14,16 +14,19 @@ if (keystorePropsFile.exists()) {
 def signingValue = { String env, String prop -> System.getenv(env) ?: keystoreProps.getProperty(prop) }
 def releaseStoreFile = signingValue('LINGO_KEYSTORE_FILE', 'storeFile')
 
+// Kullanıcıya görünen sürüm. CI çıktı dosyalarını da bu değerle adlandırır.
+def defaultVersionName = '1.54.03'
+
 android {
-    namespace = "com.ilyasilmek.lingo"
+    namespace = "com.stitchilyas.lingo"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.ilyasilmek.lingo"
+        applicationId "com.stitchilyas.lingo"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // CI her derlemede artan bir sürüm kodu verir (Play Store bunu şart koşar).
         versionCode Integer.parseInt(System.getenv('LINGO_VERSION_CODE') ?: '1')
-        versionName System.getenv('LINGO_VERSION_NAME') ?: "1.0"
+        versionName defaultVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

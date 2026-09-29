@@ -59,7 +59,7 @@ jobs:
           npx cap sync android
 
       - name: Sürüm adı
-        run: echo "LINGO_VERSION_NAME=$(node -p "require('./package.json').version").${{ github.run_number }}" >> "$GITHUB_ENV"
+        run: echo "LINGO_VERSION_NAME=$(sed -n "s/^def defaultVersionName = '\(.*\)'/\1/p" android/app/build.gradle)" >> "$GITHUB_ENV"
 
       - name: İmza anahtarını hazırla
         env:
@@ -106,7 +106,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: lingo-android-${{ env.LINGO_VERSION_NAME }}
+          name: lingo-android-${{ env.LINGO_VERSION_NAME }}-build${{ github.run_number }}
           path: dist/
           if-no-files-found: error
 

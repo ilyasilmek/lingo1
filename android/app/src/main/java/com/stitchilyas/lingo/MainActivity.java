@@ -1,4 +1,4 @@
-package com.ilyasilmek.lingo;
+package com.stitchilyas.lingo;
 
 import com.getcapacitor.BridgeActivity;
 

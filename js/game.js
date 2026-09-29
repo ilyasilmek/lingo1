@@ -99,14 +99,6 @@ export function scoreRound({ attempts, seconds, streak = 0, hintsUsed = 0, lengt
   return { base, speedBonus, hintPenalty, multiplier, score, xp: score + speedBonus, coins };
 }
 
-// Paylaşım için emoji ızgarası.
-const EMOJI = { correct: '🟩', present: '🟨', absent: '⬜' };
-export function shareText({ label, won, evaluations }) {
-  const head = `${label} ${won ? evaluations.length : 'X'}/${MAX_GUESSES}`;
-  const grid = evaluations.map((row) => row.map((s) => EMOJI[s]).join('')).join('\n');
-  return `${head}\n\n${grid}`;
-}
-
 // Tarih yardımcıları (yerel saate göre gün).
 const EPOCH = new Date(2026, 0, 1);
 

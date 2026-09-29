@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  evaluateGuess, keyboardStates, knownLetters, pickHint, scoreRound, shareText, trUpper,
+  evaluateGuess, keyboardStates, knownLetters, pickHint, scoreRound, trUpper,
   dailyIndex, seededShuffle, leagueFor, ALPHABET, KEYBOARD_ROWS, MIN_LENGTH, MAX_LENGTH,
 } from '../js/game.js';
 
@@ -63,11 +63,6 @@ test('puanlama erken bilmeyi ödüllendirir', () => {
   assert.ok(early.score > late.score);
   assert.ok(scoreRound({ attempts: 3, seconds: 30, streak: 4 }).score > scoreRound({ attempts: 3, seconds: 30 }).score);
   assert.ok(scoreRound({ attempts: 3, seconds: 30, length: 8 }).score > scoreRound({ attempts: 3, seconds: 30, length: 4 }).score);
-});
-
-test('paylaşım metni', () => {
-  const t = shareText({ label: 'Lingo #1', won: true, evaluations: [[C, C, C, C, C]] });
-  assert.equal(t, 'Lingo #1 1/6\n\n🟩🟩🟩🟩🟩');
 });
 
 test('günlük kelime deterministik', () => {

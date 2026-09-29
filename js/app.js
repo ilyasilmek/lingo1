@@ -1,7 +1,7 @@
 import {
   MIN_LENGTH, MAX_LENGTH, DAILY_LENGTH, MAX_GUESSES, TIME_ATTACK_SECONDS, KEYBOARD_ROWS, STATE,
   trUpper, isTurkishLetter, evaluateGuess, keyboardStates, knownLetters, pickHint,
-  scoreRound, streakMultiplier, shareText, dayKey, dayNumber, msUntilMidnight,
+  scoreRound, streakMultiplier, dayKey, dayNumber, msUntilMidnight,
   seededShuffle, dailyIndex, leagueFor, levelFor,
 } from './game.js';
 import { loadWords } from './wordlist.js';
@@ -886,7 +886,6 @@ function renderResult() {
     : r.mode === 'daily'
       ? 'Kelimeyi bulamadın. Yarın yeni kelimeyle tekrar dene.'
       : 'Kelimeyi bulamadın. Sıradakinde şansını dene.';
-  const shareLabel = r.mode === 'daily' ? `Lingo ${r.label.replace('Kelime ', '')}` : `Lingo ${r.label} (${n} harf)`;
 
   app.innerHTML = `
   ${headerGame('Oyun Alanı')}
@@ -921,26 +920,12 @@ function renderResult() {
       </div>
     </section>` : ''}
 
-    <section class="card" style="display:flex;flex-direction:column;gap:12px">
-      <div class="section-head">
-        <h2 style="font-size:18px">${icon('share')}Skorunu Paylaş</h2>
-        <span class="small muted">${r.won ? r.attempts : 'X'}/${MAX_GUESSES}</span>
-      </div>
-      <div class="share-grid">
-        ${r.guesses.map((g, i) => `<div>${[...g].map((ch, c) => `<span class="${r.evaluations[i][c]}">${ch}</span>`).join('')}</div>`).join('')}
-      </div>
-      <button class="btn btn-soft btn-block" id="copy">${icon('content_copy')}Skoru Kopyala</button>
-    </section>
-
     <button class="btn btn-primary btn-block" data-classic>${r.mode === 'daily' ? 'KLASİK MODDA DEVAM ET' : 'SONRAKİ KELİMEYE GEÇ'} ${icon('arrow_forward')}</button>
     <button class="btn btn-ghost" data-go="#/">${icon('home')}Ana Menüye Dön</button>
   </main>`;
 
   bindBack();
   bindCommon();
-  app.querySelector('#copy').addEventListener('click', () => {
-    copy(shareText({ label: shareLabel, won: r.won, evaluations: r.evaluations }));
-  });
   if (r.won && !r.alreadyRecorded) confetti();
 }
 
@@ -970,20 +955,6 @@ function renderTimeResult(r) {
   bindBack();
   bindCommon();
   if (r.solved.length) confetti();
-}
-
-async function copy(text) {
-  try {
-    if (navigator.share && matchMedia('(pointer: coarse)').matches) {
-      await navigator.share({ text });
-      return;
-    }
-    await navigator.clipboard.writeText(text);
-    toast('Panoya kopyalandı');
-  } catch (e) {
-    if (e?.name === 'AbortError') return;
-    toast('Kopyalanamadı');
-  }
 }
 
 function confetti() {

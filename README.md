@@ -25,7 +25,7 @@ Herhangi bir statik sunucu da olur (`python3 -m http.server`, GitHub Pages vb.).
 - **Günün kelimesi**: herkes için aynı 5 harfli kelime, gece yarısı yenilenir. Yarım kalan oyun kaldığı yerden devam eder, ödül iki katıdır.
 - **Klasik**: rastgele kelime, süre yok. Yarım kalan oyun saklanır. Klasik tekrar açılınca "Devam / Yeni oyun" sorulur. En az bir tahmin yapılmış oyunu bırakıp yenisini açmak kayıp sayılır. Hiç tahmin yapılmamış oyun, seçili uzunluk değiştiyse sormadan yenisiyle değiştirilir.
 - **Zamana Karşı**: 60 saniyede bildiğin kadar kelime. Bilinen ya da kaçan kelimeden sonra yenisine geçilir.
-- Çevirme animasyonu, konfeti, ipucu (kelime başına 1 bedava, sonrası 25 coin), paylaşılabilir emoji ızgarası.
+- Çevirme animasyonu, konfeti, ipucu (kelime başına 1 bedava, sonrası 25 coin).
 - Seri, XP, seviye, lig, tahmin dağılımı ve günlük görevler.
 - Açık/koyu tema (sistem ayarını izler, profilden değiştirilebilir).
 - Fiziksel klavye desteği. Türkçe klavyede `i`/`ı` doğru eşlenir; İngilizce klavyede `I` yalnızca ekran klavyesinden girilebilir.
@@ -91,7 +91,7 @@ npm run build:words -- ./gts.json ./package/turkish_wordnet.xml
 
 ## Android (APK / AAB)
 
-Web uygulaması [Capacitor](https://capacitorjs.com/) ile Android'e paketlenir. `android/` klasörü Android Studio'da doğrudan açılabilen bir Gradle projesidir; uygulama kimliği `com.ilyasilmek.lingo`.
+Web uygulaması [Capacitor](https://capacitorjs.com/) ile Android'e paketlenir. `android/` klasörü Android Studio'da doğrudan açılabilen bir Gradle projesidir; uygulama kimliği `com.stitchilyas.lingo`, sürüm adı `android/app/build.gradle` içindeki `defaultVersionName` değerinden gelir.
 
 ```bash
 npm install
