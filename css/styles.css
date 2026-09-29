@@ -741,3 +741,17 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   color: var(--text); font: inherit; font-weight: 600; padding: 0 10px;
 }
 .setting-row.disabled { opacity: 0.55; }
+
+/* Arşiv kilidi */
+.archive-row.locked { opacity: 0.45; filter: grayscale(1); cursor: not-allowed; }
+.archive-row.locked:hover { border-color: var(--outline); }
+.archive-notice {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  background: var(--surface-low); border: 1.5px solid var(--outline); border-radius: 14px; padding: 12px 14px;
+}
+.archive-notice > .icon { width: 24px; height: 24px; color: var(--text-2); }
+.archive-notice > div { flex: 1; min-width: 160px; }
+.archive-notice strong { display: block; }
+.archive-notice small { display: block; color: var(--text-2); font-size: 13px; line-height: 18px; }
+.archive-notice .btn { min-height: 44px; padding: 0 18px; font-size: 14px; }
+.link-btn.muted-link { color: var(--text-2); }

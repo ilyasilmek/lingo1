@@ -10,7 +10,7 @@ import { ICONS } from './icons.js';
 import { feedback } from './feedback.js';
 import {
   parseDay, hardModeViolation, ACHIEVEMENTS, achievementProgress, archiveDays,
-  FREEZE_COST, FREEZE_MAX, REMINDER_TIMES, emptyLengthStats,
+  FREEZE_COST, FREEZE_MAX, REMINDER_TIMES, emptyLengthStats, archiveAccess, openArchiveDay,
 } from './progress.js';
 import { remindersSupported, requestReminderPermission, syncReminders } from './notifications.js';
 import {
@@ -351,7 +351,7 @@ function renderHome() {
       ${dailyDone
         ? `<button class="btn btn-soft btn-block" data-go="#/oyna/gunluk">${icon('task_alt')}${d.won ? `Bugün ${d.guesses.length}. denemede bildin` : 'Bugünkü kelime kaçtı'} · Sonucu Gör</button>`
         : `<button class="btn btn-primary btn-block" data-go="#/oyna/gunluk">${icon('play_arrow', 'fill')}${d?.guesses?.length ? 'DEVAM ET' : 'HEMEN OYNA'}</button>`}
-      <button class="link-btn" data-go="#/arsiv">${icon('history')}Geçmiş günlerin kelimeleri ${icon('chevron_right')}</button>
+      <button class="link-btn ${dailyDone ? '' : 'muted-link'}" data-go="#/arsiv">${icon(dailyDone ? 'history' : 'lock')}${dailyDone ? 'Geçmiş günlerin kelimeleri' : 'Arşiv, bugünü tamamlayınca açılır'} ${icon('chevron_right')}</button>
     </section>
 
     <section class="stat-grid" aria-label="Özet">
@@ -537,6 +537,14 @@ function saveProgress(s = session) {
 
 async function renderGame(mode, arg) {
   const token = renderToken;
+  if (mode === 'archive' && !getDayRecord(arg)?.finished) {
+    const access = archiveAccess(archiveState(), arg);
+    if (!access.allowed) {
+      go('#/arsiv', { replace: true });
+      toast(access.reason, 2600);
+      return;
+    }
+  }
   app.innerHTML = `${headerGame('Oyun Alanı')}<main class="page game"><p class="muted" style="text-align:center;margin-top:40px">Kelimeler yükleniyor…</p></main>`;
   bindBack();
   let s;
@@ -1252,24 +1260,38 @@ function renderBadges() {
 
 // ---------- Arşiv ----------
 
+function archiveState() {
+  const today = dayKey();
+  return { todayFinished: !!getDayRecord(today)?.finished, openDay: openArchiveDay(getProfile().history, today) };
+}
+
 function renderArchive() {
   const today = dayKey();
   const days = archiveDays(today, EPOCH_DAY);
   const rows = days.map((d) => ({ d, rec: getDayRecord(d) }));
   const done = rows.filter((x) => x.rec?.finished).length;
+  const access = archiveState();
+  const notice = !access.todayFinished
+    ? `<div class="archive-notice">${icon('lock', 'fill')}<div><strong>Arşiv kilitli</strong><small>Önce bugünün kelimesini tamamla, sonra geçmiş günleri oynayabilirsin.</small></div>
+        <button class="btn btn-primary" data-go="#/oyna/gunluk">Bugünü oyna</button></div>`
+    : access.openDay
+      ? `<div class="archive-notice">${icon('history')}<div><strong>Yarım kalan oyun var</strong><small>${dayTitle(access.openDay)} gününü bitirmeden diğer günler açılmaz.</small></div></div>`
+      : '';
   app.innerHTML = `
   ${headerGame('Arşiv')}
   <main class="page">
     <section class="card tint tint-sky" style="display:flex;flex-direction:column;gap:6px">
       <h2 style="font-size:20px">Geçmiş günlerin kelimeleri</h2>
-      <p class="muted" style="margin:0">Kaçırdığın günlerin kelimelerini burada oynayabilirsin. Arşiv oyunları ödül ve istatistik kazandırır, ama seriyi etkilemez. Son ${days.length} günden ${done} tanesi tamamlandı.</p>
+      <p class="muted" style="margin:0">Kaçırdığın günlerin kelimelerini burada oynayabilirsin. Arşiv, bugünün kelimesini tamamlayınca açılır. Arşiv oyunları ödül ve istatistik kazandırır, ama seriyi etkilemez. Son ${days.length} günden ${done} tanesi tamamlandı.</p>
     </section>
+    ${notice}
     <div class="archive-list">
       ${rows.map(({ d, rec }) => {
         const st = rec?.finished ? (rec.won ? 'won' : 'lost') : rec?.guesses?.length ? 'open' : 'new';
         const label = { won: `${rec?.guesses?.length}/6 bildin`, lost: 'Kaçtı', open: 'Yarım kaldı', new: 'Oynanmadı' }[st];
+        const ok = st === 'won' || st === 'lost' || archiveAccess(access, d).allowed;
         return `
-        <button class="archive-row ${st}" data-go="#/oyna/arsiv/${d}">
+        <button class="archive-row ${st} ${ok ? '' : 'locked'}" ${ok ? `data-go="#/oyna/arsiv/${d}"` : `aria-disabled="true" data-locked="${esc(archiveAccess(access, d).reason)}"`}>
           <span class="archive-date"><strong>${parseDay(d).getDate()}</strong><small>${parseDay(d).toLocaleDateString('tr-TR', { month: 'short' })}</small></span>
           <span class="archive-info"><strong>${parseDay(d).toLocaleDateString('tr-TR', { weekday: 'long' })}</strong><small>Kelime #${dayNumber(parseDay(d)) + 1}</small></span>
           <span class="badge ${st === 'won' ? 'mint' : st === 'lost' ? '' : st === 'open' ? 'amber' : 'primary'}">${label}</span>
@@ -1279,6 +1301,10 @@ function renderArchive() {
   </main>`;
   bindBack();
   bindCommon();
+  app.querySelectorAll('[data-locked]').forEach((row) => row.addEventListener('click', () => {
+    feedback.invalid();
+    toast(row.dataset.locked, 2600);
+  }));
 }
 
 // ---------- Profil ----------

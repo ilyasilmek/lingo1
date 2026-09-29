@@ -31,7 +31,7 @@ Takıldığında ampul simgesine basıp bir harf açtırabilirsin. İpucu 4. tah
 
 **Zamana Karşı.** 60 saniyede bilebildiğin kadar kelime bil. Bir kelimeyi bulunca ya da altı hakkın bitince hemen yenisi gelir.
 
-**Arşiv.** Kaçırdığın son 60 günün kelimelerini ana sayfadaki "Geçmiş günlerin kelimeleri" bağlantısından oynayabilirsin. Arşiv oyunları ödül kazandırır ama seriyi uzatmaz; yoksa kaçırılan günler sonradan kapatılabilirdi.
+**Arşiv.** Kaçırdığın son 60 günün kelimelerini ana sayfadaki "Geçmiş günlerin kelimeleri" bağlantısından oynayabilirsin. Arşiv, o günün kelimesini tamamladıktan sonra açılır; böylece önce bugünü oynarsın. Arşivde yarım bıraktığın bir gün varsa, o bitmeden diğer günler açılmaz. Arşiv oyunları ödül kazandırır ama seriyi uzatmaz.
 
 ## Seri, rozetler ve ayarlar
 

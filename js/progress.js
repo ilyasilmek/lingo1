@@ -149,3 +149,21 @@ export function reminderSchedule({ time = '20:00', streak = 0, playedToday = fal
 }
 
 export const REMINDER_IDS = Array.from({ length: REMINDER_DAYS }, (_, i) => REMINDER_ID_BASE + i);
+
+// Arşiv erişimi. Arşiv, bugünün kelimesi bitince (kazanılınca ya da kaybedilince) açılır;
+// böylece geçmiş günleri oynamak isteyen önce bugünü oynar. Yarım kalan bir arşiv oyunu
+// varsa o bitene kadar yalnızca o gün oynanabilir.
+export function archiveAccess({ todayFinished, openDay = null }, day) {
+  if (!todayFinished) return { allowed: false, reason: 'Arşiv, bugünün kelimesini tamamlayınca açılır' };
+  if (openDay && openDay !== day) return { allowed: false, reason: 'Önce yarım kalan arşiv oyununu bitir' };
+  return { allowed: true, reason: null };
+}
+
+// Arşivde başlanıp bitirilmemiş gün (en yenisi). Yoksa null.
+export function openArchiveDay(history = {}, today) {
+  const open = Object.entries(history)
+    .filter(([d, rec]) => d !== today && !rec?.finished && rec?.guesses?.length)
+    .map(([d]) => d)
+    .sort();
+  return open.length ? open[open.length - 1] : null;
+}

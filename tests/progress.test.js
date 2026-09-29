@@ -79,3 +79,28 @@ test('hatırlatma: bugün oynandıysa ya da saat geçtiyse bugün atlanır', () 
   assert.equal(list[0].at.getDate(), 30);
   assert.equal(new Set(list.map((n) => n.id)).size, 3);
 });
+
+import { archiveAccess, openArchiveDay } from '../js/progress.js';
+
+test('arşiv: bugün bitmeden kapalı', () => {
+  const r = archiveAccess({ todayFinished: false }, '2026-09-27');
+  assert.equal(r.allowed, false);
+  assert.match(r.reason, /bugünün kelimesini/);
+  assert.equal(archiveAccess({ todayFinished: true }, '2026-09-27').allowed, true);
+});
+
+test('arşiv: yarım kalan gün bitene kadar yalnızca o gün açık', () => {
+  const history = {
+    '2026-09-29': { guesses: ['KALEM'], finished: false },
+    '2026-09-25': { guesses: ['KİTAP', 'KALEM'], finished: false },
+    '2026-09-24': { guesses: ['KABLO'], finished: true },
+    '2026-09-23': { guesses: [], finished: false },
+  };
+  const open = openArchiveDay(history, '2026-09-29');
+  assert.equal(open, '2026-09-25');
+  assert.equal(archiveAccess({ todayFinished: true, openDay: open }, '2026-09-25').allowed, true);
+  const other = archiveAccess({ todayFinished: true, openDay: open }, '2026-09-20');
+  assert.equal(other.allowed, false);
+  assert.match(other.reason, /yarım kalan/);
+  assert.equal(openArchiveDay({}, '2026-09-29'), null);
+});
