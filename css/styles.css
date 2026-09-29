@@ -672,3 +672,73 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 /* Ad penceresi */
 .modal .input { width: 100%; }
 .field-error { min-height: 18px; margin: 0 !important; color: var(--danger) !important; font-size: 13px !important; line-height: 18px !important; }
+
+/* Rozet kartı (sonuç ekranı) */
+.badge-card { display: flex; flex-direction: column; gap: 10px; padding: 16px; }
+.badge-line { display: flex; align-items: center; gap: 12px; }
+.badge-line > div { flex: 1; min-width: 0; }
+.badge-line strong { display: block; font-size: 16px; }
+.badge-line small { display: block; color: var(--text-2); font-size: 13px; line-height: 18px; }
+.badge-line .dot { width: 40px; height: 40px; border-radius: 999px; display: flex; align-items: center; justify-content: center; flex: none; }
+
+.link-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; align-self: center;
+  min-height: 40px; padding: 0 12px; border-radius: 999px;
+  color: var(--primary-ink); font-weight: 700; font-size: 14px;
+}
+.link-btn:hover { background: var(--surface-low); }
+.stat small .icon { width: 13px; height: 13px; vertical-align: -2px; margin-left: 2px; }
+
+/* İstatistik sekmeleri */
+.stats-tabs { grid-template-columns: repeat(7, 1fr); max-width: none; }
+.stats-tabs button[aria-selected='true'] { background: var(--primary); color: #fff; box-shadow: 0 2px 8px var(--primary-glow); }
+
+/* Rozet özeti ve rozet sayfası */
+.badge-summary { display: flex; align-items: center; gap: 14px; text-align: left; width: 100%; padding: 16px; }
+.badge-summary > div { flex: 1; }
+.badge-summary strong { display: block; font-size: 17px; }
+.badge-summary small { color: var(--text-2); }
+.badge-summary .dot { width: 44px; height: 44px; border-radius: 999px; display: flex; align-items: center; justify-content: center; }
+.badge-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.badge-tile {
+  background: var(--surface); border: 1.5px solid var(--outline); border-radius: var(--radius-card);
+  padding: 14px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+}
+.badge-tile strong { font-size: 15px; line-height: 20px; }
+.badge-tile small { color: var(--text-2); font-size: 13px; line-height: 18px; flex: 1; }
+.badge-tile .bar { width: 100%; }
+.badge-icon {
+  width: 44px; height: 44px; border-radius: 999px; display: flex; align-items: center; justify-content: center;
+  background: var(--surface-high); color: var(--text-3);
+}
+.badge-icon .icon { width: 24px; height: 24px; }
+.badge-tile.on { background: var(--tint-amber-bg); border-color: var(--tint-amber-bd); }
+.badge-tile.on .badge-icon { background: var(--present-bg); color: #fff; }
+
+/* Arşiv listesi */
+.archive-list { display: flex; flex-direction: column; gap: 6px; }
+.archive-row {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+  background: var(--surface); border: 1.5px solid var(--outline); border-radius: 14px; padding: 10px 12px;
+}
+.archive-row:hover { border-color: var(--outline-strong); }
+.archive-date { width: 44px; flex: none; display: flex; flex-direction: column; align-items: center; line-height: 1.1; }
+.archive-date strong { font-size: 20px; }
+.archive-date small { color: var(--text-2); font-size: 12px; text-transform: uppercase; }
+.archive-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.archive-info strong { text-transform: capitalize; }
+.archive-info small { color: var(--text-2); font-size: 13px; }
+.archive-row.won { background: var(--tint-mint-bg); border-color: var(--tint-mint-bd); }
+
+/* Mağaza satırı */
+.shop-row { display: flex; align-items: center; gap: 12px; }
+.shop-row > div { flex: 1; min-width: 0; }
+.shop-row strong { display: block; }
+.shop-row small { display: block; color: var(--text-2); font-size: 13px; line-height: 18px; }
+.shop-row .dot { width: 44px; height: 44px; border-radius: 999px; display: flex; align-items: center; justify-content: center; flex: none; }
+.shop-row .btn { min-height: 44px; padding: 0 14px; font-size: 14px; white-space: nowrap; }
+.select {
+  height: 40px; border-radius: 10px; border: 1.5px solid var(--outline); background: var(--surface);
+  color: var(--text); font: inherit; font-weight: 600; padding: 0 10px;
+}
+.setting-row.disabled { opacity: 0.55; }

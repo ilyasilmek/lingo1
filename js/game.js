@@ -100,6 +100,8 @@ export function scoreRound({ attempts, seconds, streak = 0, hintsUsed = 0, lengt
 }
 
 // Tarih yardımcıları (yerel saate göre gün).
+// Günlük kelime sayacının başladığı gün (Kelime #1).
+export const EPOCH_DAY = '2026-01-01';
 const EPOCH = new Date(2026, 0, 1);
 
 export function dayKey(date = new Date()) {

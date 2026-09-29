@@ -31,7 +31,21 @@ Takıldığında ampul simgesine basıp bir harf açtırabilirsin. Her kelimede 
 
 **Zamana Karşı.** 60 saniyede bilebildiğin kadar kelime bil. Bir kelimeyi bulunca ya da altı hakkın bitince hemen yenisi gelir.
 
+**Arşiv.** Kaçırdığın son 60 günün kelimelerini ana sayfadaki "Geçmiş günlerin kelimeleri" bağlantısından oynayabilirsin. Arşiv oyunları ödül kazandırır ama seriyi uzatmaz; yoksa kaçırılan günler sonradan kapatılabilirdi.
+
 Düello ve Özel Oda modları henüz yok, ana sayfada "Yakında" olarak duruyor.
+
+## Seri, rozetler ve ayarlar
+
+**Seri koruyucu.** Günün kelimesini bildiğin her gün serin bir artar. Bir günü kaçırırsan seri sıfırlanır, ama elinde seri koruyucu varsa o gün kendiliğinden kapatılır. Koruyucuyu Profil sayfasındaki mağazadan 200 coin'e alırsın, en fazla 2 tane taşıyabilirsin.
+
+**Rozetler.** İlk zafer, ilk denemede bilmek, 7 ve 30 günlük seri, 9 harfli kelime, zor modda galibiyet gibi 12 hedef var. Her rozet açıldığında coin ödülü verir. İlerlemeni İstatistikler sayfasındaki Rozetler bölümünden görebilirsin.
+
+**Zor mod.** Açıkken, doğru yerde bulduğun harfleri yerinde tutman ve kelimede olduğunu öğrendiğin harfleri sonraki tahminlerde kullanman gerekir. Yeni başlayan oyunlarda geçerli olur.
+
+**Günlük hatırlatma.** Android uygulamasında, günün kelimesini çözmediysen seçtiğin saatte bildirim gelir. Kelimeyi çözdüğün gün bildirim gönderilmez.
+
+**Uzunluğa göre istatistik.** İstatistikler sayfasında sonuçlarını 4'ten 9'a her kelime uzunluğu için ayrı ayrı görebilirsin.
 
 ## Uygulama nasıl çalışıyor
 

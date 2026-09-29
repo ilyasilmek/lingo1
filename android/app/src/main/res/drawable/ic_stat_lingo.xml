@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bildirim çubuğu simgesi: Android bunu tek renk (beyaz) maske olarak kullanır. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path android:fillColor="#FFFFFFFF" android:pathData="M3,3h8v8h-8z M13,3h8v8h-8z M3,13h8v8h-8z M13,13h8v8h-8z" />
+    <path android:fillColor="#00000000" android:strokeColor="#00000000" android:pathData="M0,0h24v24h-24z" />
+</vector>

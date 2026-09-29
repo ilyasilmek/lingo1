@@ -3,13 +3,19 @@ import {
   trUpper, isTurkishLetter, evaluateGuess, keyboardStates, knownLetters, pickHint,
   scoreRound, streakMultiplier, dayKey, dayNumber, msUntilMidnight,
   seededShuffle, dailyIndex, leagueFor, levelFor,
-  cleanName, validateName, nameChangeStatus, NAME_MAX, NAME_FREE_AFTER_GAMES,
+  cleanName, validateName, nameChangeStatus, NAME_MAX, NAME_FREE_AFTER_GAMES, EPOCH_DAY,
 } from './game.js';
 import { loadWords } from './wordlist.js';
 import { ICONS } from './icons.js';
 import { feedback } from './feedback.js';
 import {
+  parseDay, hardModeViolation, ACHIEVEMENTS, achievementProgress, archiveDays,
+  FREEZE_COST, FREEZE_MAX, REMINDER_TIMES, emptyLengthStats,
+} from './progress.js';
+import { remindersSupported, requestReminderPermission, syncReminders } from './notifications.js';
+import {
   getProfile, updateProfile, resetProfile, quests, currentStreak, recordRound, countGame,
+  applyStreakFreezes, buyFreeze, claimAchievements, getDayRecord, saveDayRecord,
 } from './storage.js';
 
 const app = document.getElementById('app');
@@ -245,7 +251,7 @@ async function openClassic() {
 function abandonClassic() {
   const saved = getProfile().classic;
   if (!saved) return;
-  if (saved.guesses.length) recordRound({ won: false, attempts: saved.guesses.length });
+  if (saved.guesses.length) recordRound({ won: false, attempts: saved.guesses.length, length: len(saved.answer) });
   updateProfile({ classic: null });
 }
 
@@ -319,7 +325,7 @@ function renderHome() {
   const p = getProfile();
   const q = quests();
   const n = selectedLength();
-  const d = p.daily && p.daily.day === dayKey() ? p.daily : null;
+  const d = getDayRecord(dayKey());
   const dailyDone = d?.finished;
   const winRate = p.played ? Math.round((p.wins / p.played) * 100) : 0;
   const base = scoreRound({ attempts: 3, seconds: 60 });
@@ -345,10 +351,11 @@ function renderHome() {
       ${dailyDone
         ? `<button class="btn btn-soft btn-block" data-go="#/oyna/gunluk">${icon('task_alt')}${d.won ? `Bugün ${d.guesses.length}. denemede bildin` : 'Bugünkü kelime kaçtı'} · Sonucu Gör</button>`
         : `<button class="btn btn-primary btn-block" data-go="#/oyna/gunluk">${icon('play_arrow', 'fill')}${d?.guesses?.length ? 'DEVAM ET' : 'HEMEN OYNA'}</button>`}
+      <button class="link-btn" data-go="#/arsiv">${icon('history')}Geçmiş günlerin kelimeleri ${icon('chevron_right')}</button>
     </section>
 
     <section class="stat-grid" aria-label="Özet">
-      <div class="stat tint tint-apricot"><span class="dot primary">${icon('local_fire_department')}</span><strong>${currentStreak()} Gün</strong><small>Seri</small></div>
+      <div class="stat tint tint-apricot"><span class="dot primary">${icon('local_fire_department')}</span><strong>${currentStreak()} Gün</strong><small>Seri${p.freezes ? ` · ${icon('shield', 'fill')}${p.freezes}` : ''}</small></div>
       <div class="stat tint tint-mint"><span class="dot mint">${icon('donut_large')}</span><strong>%${winRate}</strong><small>Galibiyet</small></div>
       <div class="stat tint tint-amber"><span class="dot amber">${icon('trophy')}</span><strong>${leagueFor(p.xp)}</strong><small>Mevcut lig</small></div>
     </section>
@@ -446,6 +453,7 @@ function baseSession(mode, answer, words) {
     current: [],
     hints: [],
     freeHint: true,
+    hard: !!getProfile().hardMode,
     finished: false,
     won: false,
     busy: false,
@@ -460,22 +468,32 @@ function restore(s, saved) {
   s.hints = [...(saved.hints || [])];
   s.freeHint = saved.freeHint ?? !s.hints.length;
   s.elapsedBefore = saved.seconds || 0;
+  if (saved.hard !== undefined) s.hard = !!saved.hard;
   return s;
 }
 
-async function newSession(mode) {
+// Bir günün kelimesi: herkes için aynı, tarihten hesaplanır.
+function dayAnswer(words, day) {
+  const order = seededShuffle(words.answers);
+  return order[dailyIndex(order.length, parseDay(day))];
+}
+
+const dayTitle = (day) => parseDay(day).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' });
+
+async function newSession(mode, arg) {
   const p = getProfile();
-  if (mode === 'daily') {
+  if (mode === 'daily' || mode === 'archive') {
+    const day = mode === 'daily' ? dayKey() : arg;
     const words = await loadWords(DAILY_LENGTH);
-    const order = seededShuffle(words.answers);
-    const answer = order[dailyIndex(order.length)];
+    const answer = dayAnswer(words, day);
     const s = baseSession(mode, answer, words);
-    s.label = `Kelime #${dayNumber() + 1}`;
-    const saved = p.daily && p.daily.day === dayKey() && p.daily.answer === answer ? p.daily : null;
-    if (saved) {
+    s.day = day;
+    s.label = mode === 'daily' ? `Kelime #${dayNumber() + 1}` : `Arşiv · ${dayTitle(day)}`;
+    const saved = getDayRecord(day);
+    if (saved && saved.answer === answer) {
       restore(s, saved);
-      s.finished = saved.finished;
-      s.won = saved.won;
+      s.finished = !!saved.finished;
+      s.won = !!saved.won;
     }
     return s;
   }
@@ -520,20 +538,20 @@ function saveProgress(s = session) {
     freeHint: s.freeHint,
     seconds: Math.round(elapsedSeconds(s)),
   };
-  if (s.mode === 'daily') {
-    updateProfile({ daily: { ...common, day: dayKey(), finished: s.finished, won: s.won } });
+  if (s.mode === 'daily' || s.mode === 'archive') {
+    saveDayRecord(s.day, { ...common, hard: s.hard, finished: s.finished, won: s.won });
   } else if (s.mode === 'classic') {
-    updateProfile({ classic: s.finished ? null : { ...common, label: s.label } });
+    updateProfile({ classic: s.finished ? null : { ...common, hard: s.hard, label: s.label } });
   }
 }
 
-async function renderGame(mode) {
+async function renderGame(mode, arg) {
   const token = renderToken;
   app.innerHTML = `${headerGame('Oyun Alanı')}<main class="page game"><p class="muted" style="text-align:center;margin-top:40px">Kelimeler yükleniyor…</p></main>`;
   bindBack();
   let s;
   try {
-    s = await newSession(mode);
+    s = await newSession(mode, arg);
   } catch (e) {
     if (token !== renderToken) return;
     app.querySelector('main').innerHTML = `
@@ -572,6 +590,7 @@ async function renderGame(mode) {
         <div>
           <span class="badge" id="round-label">${esc(session.label)}</span>
           <span class="badge mint">● ${n} Harfli</span>
+          ${session.hard ? `<span class="badge amber" title="Zor mod">${icon('fitness_center')}Zor</span>` : ''}
         </div>
         <div>
           ${mode === 'time'
@@ -795,6 +814,10 @@ function submitGuess() {
   if (session.current.length < n) return shakeRow(`Kelime ${n} harfli olmalı`);
   const guess = session.current.join('');
   if (!session.words.valid.has(guess)) return shakeRow('Bu kelime TDK sözlüğünde yok');
+  if (session.hard) {
+    const problem = hardModeViolation(guess, session.guesses, session.evaluations);
+    if (problem) return shakeRow(`Zor mod: ${problem}`);
+  }
 
   const evaluation = evaluateGuess(guess, session.answer);
   const r = session.guesses.length;
@@ -886,8 +909,13 @@ function buildResult(s, { alreadyRecorded }) {
     }
   }
   if (!alreadyRecorded) {
-    recordRound({ won: s.won, attempts, xp: reward.xp, coins: reward.coins });
+    recordRound({
+      won: s.won, attempts, xp: reward.xp, coins: reward.coins,
+      length: s.length, hard: s.hard, hintsUsed: s.hints.length, archive: s.mode === 'archive',
+    });
+    if (s.mode === 'daily') refreshReminders();
   }
+  const newBadges = alreadyRecorded ? [] : claimAchievements();
   return {
     mode: s.mode,
     label: s.label,
@@ -901,6 +929,7 @@ function buildResult(s, { alreadyRecorded }) {
     reward,
     streak: currentStreak(),
     alreadyRecorded,
+    newBadges,
   };
 }
 
@@ -911,7 +940,7 @@ function afterTimeGuess(won, lost) {
     const seconds = (Date.now() - s.wordStartedAt) / 1000;
     const r = scoreRound({ attempts: s.guesses.length, seconds, hintsUsed: s.hints.length, length: s.length });
     s.totalScore += r.score + r.speedBonus;
-    s.solved.push({ word: s.answer, attempts: s.guesses.length });
+    s.solved.push({ word: s.answer, attempts: s.guesses.length, hints: s.hints.length });
     rowEl(s.guesses.length - 1).classList.add('win');
     feedback.win();
     toast(`+${fmt(r.score + r.speedBonus)} puan`);
@@ -959,8 +988,10 @@ function finishTimeAttack() {
   const coins = s.solved.length * 10;
   const best = Math.max(p.timeAttackBest, s.totalScore);
   updateProfile({ xp: p.xp + s.totalScore, coins: p.coins + coins, timeAttackBest: best });
-  s.solved.forEach((w) => recordRound({ won: true, attempts: w.attempts, countsForStats: false }));
+  s.solved.forEach((w) => recordRound({ won: true, attempts: w.attempts, countsForStats: false, hintsUsed: w.hints }));
   countGame();
+  if (s.solved.length > (getProfile().timeAttackMaxWords || 0)) updateProfile({ timeAttackMaxWords: s.solved.length });
+  const newBadges = claimAchievements();
   feedback.timeUp();
   lastResult = {
     mode: 'time',
@@ -970,6 +1001,7 @@ function finishTimeAttack() {
     currentMeanings: s.words.meanings[s.answer] || [],
     totalScore: s.totalScore,
     coins,
+    newBadges,
     isBest: s.totalScore > 0 && s.totalScore > p.timeAttackBest,
   };
   go('#/sonuc');
@@ -1001,6 +1033,20 @@ function resultActions(primary) {
   </div>`;
 }
 
+function badgeCard(list = []) {
+  if (!list.length) return '';
+  return `
+    <section class="card tint tint-amber badge-card">
+      <span class="small" style="color:var(--present-ink)">${list.length > 1 ? `${list.length} YENİ ROZET` : 'YENİ ROZET'}</span>
+      ${list.map((a) => `
+        <div class="badge-line">
+          <span class="dot amber">${icon(a.icon, 'fill')}</span>
+          <div><strong>${esc(a.title)}</strong><small>${esc(a.desc)}</small></div>
+          <span class="badge solid">+${a.reward}</span>
+        </div>`).join('')}
+    </section>`;
+}
+
 function renderResult() {
   const r = lastResult;
   if (!r) return go('#/');
@@ -1012,6 +1058,8 @@ function renderResult() {
     ? `Tebrikler, kelimeyi <b>${r.attempts}. denemede</b> bildin.`
     : r.mode === 'daily'
       ? 'Kelimeyi bulamadın. Yarın yeni kelimeyle tekrar dene.'
+      : r.mode === 'archive'
+        ? 'Kelimeyi bulamadın. Arşivde başka günler seni bekliyor.'
       : 'Kelimeyi bulamadın. Sıradakinde şansını dene.';
 
   app.innerHTML = `
@@ -1022,6 +1070,7 @@ function renderResult() {
       <h2>${title}</h2>
       <p>${sub}</p>
     </section>
+    ${badgeCard(r.newBadges)}
 
     <section class="card">
       <div class="answer-tiles ${r.won ? '' : 'lost'}" style="--n:${n}">
@@ -1049,7 +1098,9 @@ function renderResult() {
 
   </main>
   ${resultActions(
-    `<button class="btn btn-primary" data-classic>${r.mode === 'daily' ? 'KLASİK OYNA' : 'SONRAKİ KELİME'} ${icon('arrow_forward')}</button>`,
+    r.mode === 'archive'
+      ? `<button class="btn btn-primary" data-go="#/arsiv">ARŞİVE DÖN ${icon('arrow_forward')}</button>`
+      : `<button class="btn btn-primary" data-classic>${r.mode === 'daily' ? 'KLASİK OYNA' : 'SONRAKİ KELİME'} ${icon('arrow_forward')}</button>`,
   )}`;
 
   bindBack();
@@ -1066,6 +1117,7 @@ function renderTimeResult(r) {
       <h2>${r.solved.length ? `${r.solved.length} KELİME!` : 'SÜRE BİTTİ'}</h2>
       <p>${r.isBest ? '<b>Yeni rekor!</b> ' : ''}${TIME_ATTACK_SECONDS} saniyede ${fmt(r.totalScore)} puan topladın.</p>
     </section>
+    ${badgeCard(r.newBadges)}
     <section class="kv-grid">
       <div class="kv"><span class="dot primary">${icon('bolt')}</span><div><small>Toplam puan</small><strong class="primary">${fmt(r.totalScore)}</strong></div></div>
       <div class="kv"><span class="dot amber">${icon('paid')}</span><div><small>Coin</small><strong>+${r.coins}</strong></div></div>
@@ -1107,42 +1159,129 @@ function confetti() {
 
 // ---------- İstatistik ----------
 
+let statsTab = 'all';
+
 function renderStats() {
   const p = getProfile();
-  const winRate = p.played ? Math.round((p.wins / p.played) * 100) : 0;
-  const max = Math.max(1, ...p.distribution);
-  const lastDaily = p.daily && p.daily.day === dayKey() && p.daily.won ? p.daily.guesses.length : 0;
+  const tab = statsTab;
+  const src = tab === 'all'
+    ? { played: p.played, wins: p.wins, dist: p.distribution }
+    : (p.byLength?.[tab] || emptyLengthStats());
+  const winRate = src.played ? Math.round((src.wins / src.played) * 100) : 0;
+  const max = Math.max(1, ...src.dist);
+  const today = getDayRecord(dayKey());
+  const lastDaily = tab === 'all' && today?.won ? today.guesses.length : 0;
+  const unlocked = ACHIEVEMENTS.filter((a) => p.achievements?.[a.id]).length;
+  const tabs = ['all', ...Array.from({ length: MAX_LENGTH - MIN_LENGTH + 1 }, (_, i) => String(MIN_LENGTH + i))];
 
   app.innerHTML = `
   ${headerHome(p)}
   <main class="page">
     <h2 style="margin:0;font-size:28px;line-height:36px">İstatistikler</h2>
+    <div class="length-options stats-tabs" role="tablist" aria-label="Kelime uzunluğu">
+      ${tabs.map((t) => `<button role="tab" aria-selected="${t === tab}" aria-checked="${t === tab}" data-tab="${t}">${t === 'all' ? 'Tümü' : t}</button>`).join('')}
+    </div>
     <section class="stat-grid">
-      <div class="stat"><strong>${p.played}</strong><small>Oynanan</small></div>
+      <div class="stat"><strong>${src.played}</strong><small>Oynanan</small></div>
       <div class="stat"><strong>%${winRate}</strong><small>Galibiyet</small></div>
-      <div class="stat"><strong>${p.wins}</strong><small>Kazanılan</small></div>
+      <div class="stat"><strong>${src.wins}</strong><small>Kazanılan</small></div>
+      ${tab === 'all' ? `
       <div class="stat"><strong>${currentStreak()}</strong><small>Güncel seri</small></div>
       <div class="stat"><strong>${p.bestStreak}</strong><small>En iyi seri</small></div>
-      <div class="stat"><strong>${fmt(p.timeAttackBest)}</strong><small>Zaman rekoru</small></div>
+      <div class="stat"><strong>${fmt(p.timeAttackBest)}</strong><small>Zaman rekoru</small></div>` : ''}
     </section>
     <section class="card" style="display:flex;flex-direction:column;gap:12px">
-      <h2 style="font-size:18px">Tahmin dağılımı</h2>
+      <h2 style="font-size:18px">Tahmin dağılımı${tab === 'all' ? '' : ` · ${tab} harf`}</h2>
+      ${src.played ? `
       <div class="dist">
-        ${p.distribution.map((c, i) => `
+        ${src.dist.map((c, i) => `
           <div class="dist-row"><span>${i + 1}</span>
             <span class="dist-bar ${lastDaily === i + 1 ? 'hl' : ''}" style="width:${Math.max(8, (c / max) * 100)}%">${c}</span>
           </div>`).join('')}
-      </div>
+      </div>` : `<p class="muted" style="margin:0">${tab} harfli kelimelerle henüz oyun oynamadın.</p>`}
     </section>
+    <button class="card tint tint-amber badge-summary" data-go="#/rozetler">
+      <span class="dot amber">${icon('workspace_premium', 'fill')}</span>
+      <div><strong>Rozetler</strong><small>${unlocked} / ${ACHIEVEMENTS.length} açıldı</small></div>
+      ${icon('chevron_right')}
+    </button>
     <section class="kv-grid">
       <div class="kv"><span class="dot primary">${icon('bolt')}</span><div><small>Toplam XP</small><strong>${fmt(p.xp)}</strong></div></div>
       <div class="kv"><span class="dot amber">${icon('paid')}</span><div><small>Coin</small><strong>${fmt(p.coins)}</strong></div></div>
       <div class="kv"><span class="dot mint">${icon('military_tech')}</span><div><small>Seviye</small><strong>${levelFor(p.xp)}</strong></div></div>
       <div class="kv"><span class="dot blue">${icon('trophy')}</span><div><small>Lig</small><strong>${leagueFor(p.xp)}</strong></div></div>
     </section>
-    <p class="muted" style="margin:0">Liderlik tablosu için sunucu gerekiyor. Şimdilik istatistikler yalnızca bu cihazda tutuluyor.</p>
+    <p class="muted" style="margin:0">Uzunluğa göre sayılar bu özellik eklendikten sonra oynanan oyunları kapsar. "Tümü" sekmesi bütün oyunları gösterir.</p>
   </main>
   ${bottomNav('stats')}`;
+  bindCommon();
+  app.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => {
+    statsTab = b.dataset.tab;
+    const y = window.scrollY;
+    runCleanups();
+    renderStats();
+    window.scrollTo(0, y);
+  }));
+}
+
+// ---------- Rozetler ----------
+
+function renderBadges() {
+  const p = getProfile();
+  const items = ACHIEVEMENTS.map((a) => ({ a, pr: achievementProgress(p, a) }));
+  const unlocked = items.filter((x) => x.pr.unlockedAt);
+  items.sort((x, y) => Number(!!y.pr.unlockedAt) - Number(!!x.pr.unlockedAt));
+  app.innerHTML = `
+  ${headerGame('Rozetler')}
+  <main class="page">
+    <section class="card tint tint-amber" style="display:flex;align-items:center;gap:14px">
+      <span class="dot amber" style="width:52px;height:52px;border-radius:999px;display:flex;align-items:center;justify-content:center">${icon('workspace_premium', 'fill')}</span>
+      <div><strong style="font-size:22px">${unlocked.length} / ${ACHIEVEMENTS.length}</strong><br><span class="muted">rozet açıldı. Her rozet coin ödülü verir.</span></div>
+    </section>
+    <div class="badge-grid">
+      ${items.map(({ a, pr }) => `
+        <div class="badge-tile ${pr.unlockedAt ? 'on' : ''}">
+          <span class="badge-icon">${icon(pr.unlockedAt ? a.icon : 'lock', 'fill')}</span>
+          <strong>${esc(a.title)}</strong>
+          <small>${esc(a.desc)}</small>
+          ${pr.unlockedAt
+            ? `<span class="badge mint">${parseDay(pr.unlockedAt).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' })}</span>`
+            : `<div class="bar"><span style="width:${(pr.cur / pr.goal) * 100}%"></span></div><span class="small muted">${pr.cur} / ${pr.goal} · +${a.reward} coin</span>`}
+        </div>`).join('')}
+    </div>
+  </main>`;
+  bindBack();
+  bindCommon();
+}
+
+// ---------- Arşiv ----------
+
+function renderArchive() {
+  const today = dayKey();
+  const days = archiveDays(today, EPOCH_DAY);
+  const rows = days.map((d) => ({ d, rec: getDayRecord(d) }));
+  const done = rows.filter((x) => x.rec?.finished).length;
+  app.innerHTML = `
+  ${headerGame('Arşiv')}
+  <main class="page">
+    <section class="card tint tint-sky" style="display:flex;flex-direction:column;gap:6px">
+      <h2 style="font-size:20px">Geçmiş günlerin kelimeleri</h2>
+      <p class="muted" style="margin:0">Kaçırdığın günlerin kelimelerini burada oynayabilirsin. Arşiv oyunları ödül ve istatistik kazandırır, ama seriyi etkilemez. Son ${days.length} günden ${done} tanesi tamamlandı.</p>
+    </section>
+    <div class="archive-list">
+      ${rows.map(({ d, rec }) => {
+        const st = rec?.finished ? (rec.won ? 'won' : 'lost') : rec?.guesses?.length ? 'open' : 'new';
+        const label = { won: `${rec?.guesses?.length}/6 bildin`, lost: 'Kaçtı', open: 'Yarım kaldı', new: 'Oynanmadı' }[st];
+        return `
+        <button class="archive-row ${st}" data-go="#/oyna/arsiv/${d}">
+          <span class="archive-date"><strong>${parseDay(d).getDate()}</strong><small>${parseDay(d).toLocaleDateString('tr-TR', { month: 'short' })}</small></span>
+          <span class="archive-info"><strong>${parseDay(d).toLocaleDateString('tr-TR', { weekday: 'long' })}</strong><small>Kelime #${dayNumber(parseDay(d)) + 1}</small></span>
+          <span class="badge ${st === 'won' ? 'mint' : st === 'lost' ? '' : st === 'open' ? 'amber' : 'primary'}">${label}</span>
+        </button>`;
+      }).join('')}
+    </div>
+  </main>`;
+  bindBack();
   bindCommon();
 }
 
@@ -1157,11 +1296,12 @@ function renderProfile() {
   const nameButton = st.free
     ? `<button class="btn btn-soft" id="change-name">${icon('edit')}Değiştir</button>`
     : `<button class="btn btn-soft" id="change-name" ${st.canPay ? '' : 'disabled'}>${icon('paid')}${fmt(st.cost)} coin</button>`;
-  const toggle = (id, label, desc, on) => `
-    <div class="setting-row">
+  const toggle = (id, label, desc, on, disabled = false) => `
+    <div class="setting-row ${disabled ? 'disabled' : ''}">
       <div><label for="${id}">${label}</label><small>${desc}</small></div>
-      <button class="switch" id="${id}" role="switch" aria-checked="${on}"><span></span></button>
+      <button class="switch" id="${id}" role="switch" aria-checked="${on}" ${disabled ? 'disabled' : ''}><span></span></button>
     </div>`;
+  const canRemind = remindersSupported();
   app.innerHTML = `
   ${headerHome(p)}
   <main class="page">
@@ -1175,10 +1315,31 @@ function renderProfile() {
       </div>
       <p class="muted" style="margin:0">${nameHint}</p>
     </section>
+    <section class="card" style="display:flex;flex-direction:column;gap:12px">
+      <h2 style="font-size:18px">Mağaza</h2>
+      <div class="shop-row">
+        <span class="dot primary">${icon('shield', 'fill')}</span>
+        <div>
+          <strong>Seri koruyucu · ${p.freezes}/${FREEZE_MAX}</strong>
+          <small>Bir günü kaçırırsan serini korur, kendiliğinden kullanılır.</small>
+        </div>
+        <button class="btn btn-soft" id="buy-freeze" ${p.freezes >= FREEZE_MAX || p.coins < FREEZE_COST ? 'disabled' : ''}>${icon('paid')}${FREEZE_COST}</button>
+      </div>
+      <p class="muted small" style="margin:0">Bakiyen: ${fmt(p.coins)} coin</p>
+    </section>
     <section class="card" style="display:flex;flex-direction:column;gap:16px">
       <h2 style="font-size:18px">Ayarlar</h2>
       ${toggle('sound-toggle', 'Oyun sesleri', 'Tuş, kazanma ve kaybetme sesleri', p.sound)}
       ${toggle('haptics-toggle', 'Titreşim', 'Harflere basınca hafif titreşim', p.haptics)}
+      ${toggle('hard-toggle', 'Zor mod', 'Bulunan harfleri sonraki tahminlerde kullanmak zorunlu. Yeni oyunlardan itibaren geçerli.', p.hardMode)}
+      ${toggle('reminder-toggle', 'Günlük hatırlatma', canRemind ? 'Günün kelimesini çözmediysen seçtiğin saatte bildirim gelir.' : 'Yalnızca Android uygulamasında çalışır.', p.reminder && canRemind, !canRemind)}
+      ${canRemind && p.reminder ? `
+      <div class="setting-row">
+        <div><label for="reminder-time">Hatırlatma saati</label></div>
+        <select class="select" id="reminder-time">
+          ${REMINDER_TIMES.map((t) => `<option value="${t}" ${t === p.reminderTime ? 'selected' : ''}>${t}</option>`).join('')}
+        </select>
+      </div>` : ''}
       <div class="field">
         <label id="theme-label">Tema</label>
         <div class="segmented" role="group" aria-labelledby="theme-label">
@@ -1198,6 +1359,8 @@ function renderProfile() {
         <li>Tahminler TDK Güncel Türkçe Sözlük'teki kelimelerden olmalı.</li>
         <li>Her kelimede bir ipucu bedava. Sonrakiler ${HINT_COST} coin.</li>
         <li>Oyuncu adını her ${NAME_FREE_AFTER_GAMES} oyunda bir ücretsiz değiştirebilirsin; beklemek istemezsen coin ödersin.</li>
+        <li>Seri koruyucu, kaçırdığın bir günü kendiliğinden kapatır. En fazla ${FREEZE_MAX} tane taşıyabilirsin.</li>
+        <li>Zor modda yeşil harfler yerinde kalmalı, turuncu harfler tahminde kullanılmalı.</li>
       </ul>
     </section>
     <button class="btn btn-ghost" id="reset" style="color:var(--danger)">${icon('delete')}Tüm verileri sıfırla</button>
@@ -1206,14 +1369,38 @@ function renderProfile() {
 
   bindCommon();
   app.querySelector('#change-name').addEventListener('click', changeName);
-  for (const [id, key] of [['sound-toggle', 'sound'], ['haptics-toggle', 'haptics']]) {
+  for (const [id, key] of [['sound-toggle', 'sound'], ['haptics-toggle', 'haptics'], ['hard-toggle', 'hardMode']]) {
     app.querySelector(`#${id}`).addEventListener('click', (e) => {
       const on = !getProfile()[key];
       updateProfile({ [key]: on });
       e.currentTarget.setAttribute('aria-checked', String(on));
-      if (on) feedback.preview(key);
+      if (on && key !== 'hardMode') feedback.preview(key);
+      if (key === 'hardMode') toast(on ? 'Zor mod açık. Yeni oyunlarda geçerli.' : 'Zor mod kapalı');
     });
   }
+  app.querySelector('#reminder-toggle')?.addEventListener('click', async () => {
+    const on = !getProfile().reminder;
+    if (on && !(await requestReminderPermission())) {
+      toast('Bildirim izni verilmedi. Telefon ayarlarından açabilirsin.', 3000);
+      return;
+    }
+    updateProfile({ reminder: on });
+    await refreshReminders();
+    toast(on ? `Her gün ${getProfile().reminderTime} için hatırlatma kuruldu` : 'Hatırlatma kapatıldı');
+    render();
+  });
+  app.querySelector('#reminder-time')?.addEventListener('change', async (e) => {
+    updateProfile({ reminderTime: e.target.value });
+    await refreshReminders();
+    toast(`Hatırlatma saati ${e.target.value}`);
+  });
+  app.querySelector('#buy-freeze').addEventListener('click', () => {
+    const r = buyFreeze();
+    if (!r.ok) return toast(r.reason);
+    feedback.hint();
+    toast('Seri koruyucu alındı');
+    render();
+  });
   app.querySelectorAll('[data-theme]').forEach((b) => b.addEventListener('click', () => {
     updateProfile({ theme: b.dataset.theme });
     applyTheme(b.dataset.theme);
@@ -1236,6 +1423,8 @@ const routes = {
   'oyna/klasik': () => renderGame('classic'),
   'oyna/zaman': () => renderGame('time'),
   sonuc: renderResult,
+  arsiv: renderArchive,
+  rozetler: renderBadges,
   istatistik: renderStats,
   profil: renderProfile,
 };
@@ -1244,13 +1433,35 @@ function render() {
   runCleanups();
   renderToken++;
   const path = location.hash.replace(/^#\/?/, '');
-  const view = routes[path] || renderHome;
+  const archiveMatch = path.match(/^oyna\/arsiv\/(\d{4}-\d{2}-\d{2})$/);
+  const view = archiveMatch ? () => renderGame('archive', archiveMatch[1]) : routes[path] || renderHome;
   session = null;
+  checkStreak();
   window.scrollTo(0, 0);
   view();
   ensureName();
 }
 
+// Kaçırılan günler seri koruyucuyla kapatılır ya da seri kırılır; oyuncuya bir kez söylenir.
+function checkStreak() {
+  const r = applyStreakFreezes();
+  if (!r) return;
+  if (r.used.length) toast(`${r.used.length} seri koruyucu kullanıldı, serin devam ediyor`, 3200);
+  else if (r.broken) toast('Serin sona erdi. Bugün yeni bir seri başlat!', 3200);
+  refreshReminders();
+}
+
+async function refreshReminders() {
+  const p = getProfile();
+  await syncReminders({
+    enabled: p.reminder,
+    time: p.reminderTime,
+    streak: currentStreak(),
+    playedToday: !!getDayRecord(dayKey())?.finished,
+  });
+}
+
 applyTheme(getProfile().theme);
 window.addEventListener('hashchange', render);
 render();
+refreshReminders();
