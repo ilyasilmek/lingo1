@@ -1,0 +1,110 @@
+name: Android
+
+# APK ve AAB derler. İmza anahtarı GitHub Secrets'ta tanımlıysa release çıktıları imzalanır,
+# tanımlı değilse imzasız üretilir (Android Studio'da ya da elle imzalanabilir).
+#
+# Gerekli secrets (Settings > Secrets and variables > Actions):
+#   LINGO_KEYSTORE_BASE64    .jks dosyasının base64 hali
+#   LINGO_KEYSTORE_PASSWORD  keystore parolası
+#   LINGO_KEY_ALIAS          anahtar adı (ör. lingo-upload)
+#   LINGO_KEY_PASSWORD       anahtar parolası
+
+on:
+  push:
+    branches: [main, 'claude/**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      LINGO_VERSION_CODE: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Bağımlılıklar
+        run: npm ci
+
+      - name: Testler
+        run: npm test
+
+      - name: Web dosyalarını Android projesine kopyala
+        run: |
+          npm run build:web
+          npx cap sync android
+
+      - name: Sürüm adı
+        run: echo "LINGO_VERSION_NAME=$(node -p "require('./package.json').version").${{ github.run_number }}" >> "$GITHUB_ENV"
+
+      - name: İmza anahtarını hazırla
+        env:
+          KEYSTORE_BASE64: ${{ secrets.LINGO_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.LINGO_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.LINGO_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.LINGO_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::warning::İmza secrets tanımlı değil; release APK/AAB imzasız üretilecek."
+            echo "LINGO_SIGNED=false" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/lingo-upload.jks"
+          {
+            echo "LINGO_KEYSTORE_FILE=$RUNNER_TEMP/lingo-upload.jks"
+            echo "LINGO_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+            echo "LINGO_KEY_ALIAS=$KEY_ALIAS"
+            echo "LINGO_KEY_PASSWORD=$KEY_PASSWORD"
+            echo "LINGO_SIGNED=true"
+          } >> "$GITHUB_ENV"
+
+      - name: Derle (debug APK, release APK ve AAB)
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleDebug assembleRelease bundleRelease
+
+      - name: İmzayı doğrula
+        if: env.LINGO_SIGNED == 'true'
+        run: |
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          "$APKSIGNER" verify --print-certs android/app/build/outputs/apk/release/app-release.apk
+          jarsigner -verify android/app/build/outputs/bundle/release/app-release.aab | tail -1
+
+      - name: Çıktıları topla
+        run: |
+          mkdir -p dist
+          cp android/app/build/outputs/apk/debug/app-debug.apk "dist/lingo-$LINGO_VERSION_NAME-debug.apk"
+          if [ "$LINGO_SIGNED" = "true" ]; then SUFFIX=release; else SUFFIX=release-unsigned; fi
+          cp android/app/build/outputs/apk/release/app-release*.apk "dist/lingo-$LINGO_VERSION_NAME-$SUFFIX.apk"
+          cp android/app/build/outputs/bundle/release/app-release.aab "dist/lingo-$LINGO_VERSION_NAME-$SUFFIX.aab"
+          ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lingo-android-${{ env.LINGO_VERSION_NAME }}
+          path: dist/
+          if-no-files-found: error
+
+      - name: Anahtar dosyasını sil
+        if: always()
+        run: rm -f "$RUNNER_TEMP/lingo-upload.jks"

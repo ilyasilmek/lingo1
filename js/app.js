@@ -280,12 +280,12 @@ function renderHome() {
           <p>${TIME_ATTACK_SECONDS} saniyede ${n} harfli kelimelerden bildiğin kadar. En iyin: ${fmt(p.timeAttackBest)} puan.</p>
           <span class="mode-cta rose-ink">Hemen Başla ${icon('arrow_forward')}</span>
         </button>
-        <button class="mode tint tint-aqua" disabled aria-disabled="true">
+        <button class="mode tint tint-muted" disabled aria-disabled="true">
           <div class="mode-top"><span class="mode-icon dot">${icon('swords')}</span><span class="badge tint-chip">Yakında</span></div>
           <h3>Düello PvP</h3>
           <p>Canlı 1'e 1 eşleşme. Sunucu tarafı henüz yok.</p>
         </button>
-        <button class="mode tint tint-sand" disabled aria-disabled="true">
+        <button class="mode tint tint-muted" disabled aria-disabled="true">
           <div class="mode-top"><span class="mode-icon dot">${icon('meeting_room')}</span><span class="badge tint-chip">Yakında</span></div>
           <h3>Özel Oda</h3>
           <p>Oda kodu ile arkadaşlarınla oyna.</p>

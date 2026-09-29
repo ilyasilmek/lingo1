@@ -88,3 +88,36 @@ npm pack nlptoolkit-wordnet && tar xzf nlptoolkit-wordnet-*.tgz   # package/turk
 npm install
 npm run build:words -- ./gts.json ./package/turkish_wordnet.xml
 ```
+
+## Android (APK / AAB)
+
+Web uygulaması [Capacitor](https://capacitorjs.com/) ile Android'e paketlenir. `android/` klasörü Android Studio'da doğrudan açılabilen bir Gradle projesidir; uygulama kimliği `com.ilyasilmek.lingo`.
+
+```bash
+npm install
+npm run android:sync     # web dosyalarını www/ klasörüne kopyalar ve android/ projesine aktarır
+```
+
+Web tarafında bir şey değiştiğinde Android Studio'da derlemeden önce `npm run android:sync` çalıştırılmalı.
+
+### GitHub Actions
+
+`.github/workflows/android.yml` her push'ta testleri çalıştırır, ardından debug APK, release APK ve release AAB üretir. Çıktılar iş akışı sayfasındaki **Artifacts** bölümünden indirilir. `versionCode` her çalıştırmada artar (Play Store bunu şart koşar).
+
+Release çıktılarının imzalanması için şu repository secrets tanımlanmalı:
+
+| Secret | İçerik |
+| --- | --- |
+| `LINGO_KEYSTORE_BASE64` | `.jks` dosyasının base64 hali (`base64 -w0 lingo-upload.jks`) |
+| `LINGO_KEYSTORE_PASSWORD` | Keystore parolası |
+| `LINGO_KEY_ALIAS` | Anahtar adı |
+| `LINGO_KEY_PASSWORD` | Anahtar parolası |
+
+Secrets yoksa release APK/AAB imzasız üretilir ve iş akışı bir uyarı verir.
+
+### Android Studio'da imzalama
+
+1. `android/` klasörünü Android Studio'da aç.
+2. **Build > Generate Signed App Bundle or APK** ile keystore dosyasını ve parolaları gir.
+
+Alternatif olarak `android/keystore.properties.example` dosyasını `android/keystore.properties` adıyla kopyalayıp doldurursan `./gradlew bundleRelease` doğrudan imzalı AAB üretir. `keystore.properties`, `*.jks` ve `*.keystore` git'e girmez.
