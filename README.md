@@ -40,7 +40,7 @@ Tüm veriler tarayıcının `localStorage` alanında (`lingo:v1`) tutulur.
 | `js/game.js` | DOM'suz oyun mantığı: tahmin değerlendirme, puanlama, günlük kelime seçimi |
 | `js/app.js` | Ekranlar, yönlendirme (`#/`, `#/oyna/...`, `#/sonuc`), oyun döngüsü |
 | `js/storage.js` | Profil, seri ve istatistiklerin kalıcı tutulması |
-| `js/words.js` | Cevap listesi ve açıklamalar (193 kelime) |
+| `js/words.js` | Cevap listesi ve açıklamalar (192 kelime) |
 | `js/dictionary.js` | Tahmin doğrulama listesi, `npm run build:dict` ile üretilir |
 | `js/icons.js` | Kullanılan Material Symbols ikonlarının SVG yolları |
 | `assets/fonts/` | Inter (OFL-1.1), yerel olarak sunulur |
