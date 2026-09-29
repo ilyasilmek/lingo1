@@ -13,6 +13,8 @@ import {
   FREEZE_COST, FREEZE_MAX, REMINDER_TIMES, emptyLengthStats, archiveAccess, openArchiveDay,
 } from './progress.js';
 import { remindersSupported, requestReminderPermission, syncReminders } from './notifications.js';
+import { leaderboardReady, submitDaily, flushScores, syncName, fetchBoard } from './leaderboard.js';
+import { PERIODS, PERIOD_LABELS } from './leaderboard-rules.js';
 import {
   getProfile, updateProfile, resetProfile, quests, currentStreak, recordRound, countGame,
   applyStreakFreezes, buyFreeze, claimAchievements, getDayRecord, saveDayRecord,
@@ -219,6 +221,7 @@ async function changeName() {
   });
   feedback.hint();
   toast(st.free ? 'Adın değişti' : `Adın değişti, ${fmt(st.cost)} coin harcandı`);
+  syncName().then((problem) => problem && toast(`Skor tablosu: ${problem}`, 3200));
   render();
 }
 
@@ -359,6 +362,12 @@ function renderHome() {
       <div class="stat tint tint-mint"><span class="dot mint">${icon('donut_large')}</span><strong>%${winRate}</strong><small>Galibiyet</small></div>
       <div class="stat tint tint-amber"><span class="dot amber">${icon('trophy')}</span><strong>${leagueFor(p.xp)}</strong><small>Mevcut lig</small></div>
     </section>
+
+    <button class="card tint tint-lilac badge-summary" data-go="#/skor">
+      <span class="dot" style="background:var(--tint-dot)">${icon('leaderboard', 'fill')}</span>
+      <div><strong>Skor Tablosu</strong><small>Günün kelimesinde diğer oyuncularla sıralaman</small></div>
+      ${icon('chevron_right')}
+    </button>
 
     <section aria-labelledby="modes-title" style="display:flex;flex-direction:column;gap:10px">
       <div class="section-head">
@@ -930,6 +939,8 @@ function buildResult(s, { alreadyRecorded }) {
     guesses: s.guesses,
     evaluations: s.evaluations,
     meanings: s.words.meanings[s.answer] || [],
+    day: s.day,
+    hints: s.hints.length,
     reward,
     streak: currentStreak(),
     alreadyRecorded,
@@ -1110,6 +1121,33 @@ function renderResult() {
   bindBack();
   bindCommon();
   if (r.won && !r.alreadyRecorded) confetti();
+  if (r.mode === 'daily' && !r.alreadyRecorded) offerLeaderboard(r);
+}
+
+// Günün kelimesi bitince skor tablosuna gönderir; ilk seferde oyuncuya sorar.
+async function offerLeaderboard(r) {
+  if (!leaderboardReady()) return;
+  const token = renderToken;
+  const payload = { day: r.day, guesses: r.guesses, hints: r.hints, seconds: r.seconds };
+  if (getProfile().leaderboard === null) {
+    await new Promise((res) => setTimeout(res, 1600));
+    if (token !== renderToken) return;
+    const yes = await dialog({
+      title: 'Skor tablosuna katıl?',
+      body: `Günün kelimesi skorların, <b>${esc(getProfile().name)}</b> adıyla diğer oyuncuların da gördüğü skor tablosunda yer alsın mı? Yalnızca adın ve puanın paylaşılır. Bu tercihi Profil sayfasından değiştirebilirsin.`,
+      actions: [
+        { label: `${icon('leaderboard')}Evet, katıl`, value: true, primary: true },
+        { label: 'Hayır, şimdilik değil', value: false },
+      ],
+    });
+    if (yes === null) return;
+    updateProfile({ leaderboard: yes });
+    if (!yes) return;
+  }
+  if (getProfile().leaderboard !== true) return;
+  const res = await submitDaily(payload);
+  if (res && !res.duplicate) toast(`Skor tablosuna eklendi: +${fmt(res.points)} puan`, 2600);
+  else if (!res) toast('Skor şimdi gönderilemedi, bağlantı gelince gönderilecek', 2600);
 }
 
 function renderTimeResult(r) {
@@ -1204,6 +1242,11 @@ function renderStats() {
           </div>`).join('')}
       </div>` : `<p class="muted" style="margin:0">${tab} harfli kelimelerle henüz oyun oynamadın.</p>`}
     </section>
+    <button class="card tint tint-lilac badge-summary" data-go="#/skor">
+      <span class="dot" style="background:var(--tint-dot)">${icon('leaderboard', 'fill')}</span>
+      <div><strong>Skor Tablosu</strong><small>Bugün, bu hafta, bu ay ve tüm zamanlar</small></div>
+      ${icon('chevron_right')}
+    </button>
     <button class="card tint tint-amber badge-summary" data-go="#/rozetler">
       <span class="dot amber">${icon('workspace_premium', 'fill')}</span>
       <div><strong>Rozetler</strong><small>${unlocked} / ${ACHIEVEMENTS.length} açıldı</small></div>
@@ -1226,6 +1269,87 @@ function renderStats() {
     renderStats();
     window.scrollTo(0, y);
   }));
+}
+
+// ---------- Skor tablosu ----------
+
+let boardPeriod = 'gun';
+
+async function renderLeaderboard() {
+  const token = renderToken;
+  const p = getProfile();
+  const tabs = `
+    <div class="length-options stats-tabs board-tabs" role="tablist" aria-label="Dönem">
+      ${PERIODS.map((k) => `<button role="tab" aria-selected="${k === boardPeriod}" data-period="${k}">${PERIOD_LABELS[k]}</button>`).join('')}
+    </div>`;
+  const shell = (body) => `
+  ${headerGame('Skor Tablosu')}
+  <main class="page">
+    <section class="card tint tint-lilac" style="display:flex;flex-direction:column;gap:6px">
+      <h2 style="font-size:20px">Günün Kelimesi sıralaması</h2>
+      <p class="muted" style="margin:0">Herkes her gün aynı kelimeyi çözer. Puan erken, hızlı ve ipuçsuz bilince artar; haftalık, aylık ve tüm zamanlar listeleri günlük puanların toplamıdır.</p>
+    </section>
+    ${tabs}
+    ${body}
+  </main>`;
+  const bindTabs = () => {
+    bindBack();
+    bindCommon();
+    app.querySelectorAll('[data-period]').forEach((b) => b.addEventListener('click', () => {
+      boardPeriod = b.dataset.period;
+      runCleanups();
+      renderLeaderboard();
+    }));
+    app.querySelector('#join-board')?.addEventListener('click', async () => {
+      updateProfile({ leaderboard: true });
+      const problem = await syncName();
+      toast(problem ? `Skor tablosu: ${problem}` : 'Skor tablosuna katıldın. Günün kelimesini çözünce listede görüneceksin.', 3200);
+      flushScores();
+      render();
+    });
+  };
+  if (!leaderboardReady()) {
+    app.innerHTML = shell(`<div class="card"><p class="muted" style="margin:0">Skor tablosu henüz hazır değil.</p></div>`);
+    bindTabs();
+    return;
+  }
+  app.innerHTML = shell(`<div class="card"><p class="muted" style="margin:0;text-align:center">Yükleniyor…</p></div>`);
+  bindTabs();
+  let data;
+  try {
+    await flushScores();
+    data = await fetchBoard(boardPeriod);
+  } catch {
+    if (token !== renderToken) return;
+    app.innerHTML = shell(`<div class="card" style="text-align:center"><p>Skor tablosuna ulaşılamadı. İnternet bağlantını kontrol et.</p>
+      <button class="btn btn-primary" data-go="#/skor">Tekrar dene</button></div>`);
+    bindTabs();
+    return;
+  }
+  if (token !== renderToken) return;
+  const joinCard = p.leaderboard !== true ? `
+    <div class="archive-notice">${icon('leaderboard')}<div><strong>Sen listede değilsin</strong><small>Katılırsan günün kelimesi skorların <b>${esc(p.name)}</b> adıyla burada görünür.</small></div>
+      <button class="btn btn-primary" id="join-board">Katıl</button></div>` : '';
+  const meInTop = data.entries.some((e) => e.self);
+  const meCard = data.me && !meInTop ? `
+    <div class="board-row self"><span class="board-rank">${data.me.rank}</span><span class="board-name">${esc(p.name)} (sen)</span><span class="board-games">${data.me.games} oyun</span><span class="board-points">${fmt(data.me.points)}</span></div>` : '';
+  const rows = data.entries.length
+    ? data.entries.map((e) => `
+      <div class="board-row ${e.self ? 'self' : ''} ${e.rank <= 3 ? `top top-${e.rank}` : ''}">
+        <span class="board-rank">${e.rank <= 3 ? icon('trophy', 'fill') : e.rank}</span>
+        <span class="board-name">${esc(e.name)}${e.self ? ' (sen)' : ''}</span>
+        <span class="board-games">${e.games} oyun</span>
+        <span class="board-points">${fmt(e.points)}</span>
+      </div>`).join('')
+    : `<p class="muted" style="margin:0;text-align:center">${boardPeriod === 'gun' ? 'Bugün henüz kimse skor göndermedi. İlk sen ol!' : 'Bu dönemde henüz skor yok.'}</p>`;
+  app.innerHTML = shell(`
+    ${joinCard}
+    <section class="card board-card">
+      <div class="section-head"><span class="small muted">${fmt(data.players)} OYUNCU</span>${data.me ? `<span class="badge primary">Sıran: ${data.me.rank}</span>` : ''}</div>
+      ${rows}
+      ${meCard}
+    </section>`);
+  bindTabs();
 }
 
 // ---------- Rozetler ----------
@@ -1353,6 +1477,7 @@ function renderProfile() {
       <h2 style="font-size:18px">Ayarlar</h2>
       ${toggle('sound-toggle', 'Oyun sesleri', 'Tuş, kazanma ve kaybetme sesleri', p.sound)}
       ${toggle('haptics-toggle', 'Titreşim', 'Harflere basınca hafif titreşim', p.haptics)}
+      ${toggle('board-toggle', 'Skor tablosunda görün', leaderboardReady() ? 'Günün kelimesi skorların adınla birlikte paylaşılır.' : 'Skor tablosu henüz hazır değil.', p.leaderboard === true && leaderboardReady(), !leaderboardReady())}
       ${toggle('hard-toggle', 'Zor mod', 'Bulunan harfleri sonraki tahminlerde kullanmak zorunlu. Yeni oyunlardan itibaren geçerli.', p.hardMode)}
       ${toggle('reminder-toggle', 'Günlük hatırlatma', canRemind ? 'Günün kelimesini çözmediysen seçtiğin saatte bildirim gelir.' : 'Yalnızca Android uygulamasında çalışır.', p.reminder && canRemind, !canRemind)}
       ${canRemind && p.reminder ? `
@@ -1400,6 +1525,19 @@ function renderProfile() {
       if (key === 'hardMode') toast(on ? 'Zor mod açık. Yeni oyunlarda geçerli.' : 'Zor mod kapalı');
     });
   }
+  app.querySelector('#board-toggle')?.addEventListener('click', async (e) => {
+    const on = getProfile().leaderboard !== true;
+    updateProfile({ leaderboard: on });
+    e.currentTarget.setAttribute('aria-checked', String(on));
+    if (on) {
+      const problem = await syncName();
+      if (problem) toast(`Skor tablosu: ${problem}`, 3200);
+      else toast('Günün kelimesi skorların artık skor tablosunda');
+      flushScores();
+    } else {
+      toast('Yeni skorların artık gönderilmeyecek');
+    }
+  });
   app.querySelector('#reminder-toggle')?.addEventListener('click', async () => {
     const on = !getProfile().reminder;
     if (on && !(await requestReminderPermission())) {
@@ -1446,6 +1584,7 @@ const routes = {
   'oyna/zaman': () => renderGame('time'),
   sonuc: renderResult,
   arsiv: renderArchive,
+  skor: renderLeaderboard,
   rozetler: renderBadges,
   istatistik: renderStats,
   profil: renderProfile,
@@ -1487,3 +1626,4 @@ applyTheme(getProfile().theme);
 window.addEventListener('hashchange', render);
 render();
 refreshReminders();
+flushScores();

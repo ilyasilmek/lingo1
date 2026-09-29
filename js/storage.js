@@ -26,6 +26,10 @@ const defaults = () => ({
   archiveWins: 0,
   timeAttackMaxWords: 0,
   history: {}, // gün -> günlük kelime kaydı (bugün ve arşiv)
+  leaderboard: null, // skor tablosuna katılım: null (sorulmadı), true, false
+  playerId: null, // skor tablosu için cihaz kimliği
+  playerSecret: null,
+  scoreQueue: [], // gönderilmeyi bekleyen günlük skorlar
   theme: 'system',
   length: DEFAULT_LENGTH,
   xp: 0,

@@ -689,7 +689,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .stat small .icon { width: 13px; height: 13px; vertical-align: -2px; margin-left: 2px; }
 
 /* İstatistik sekmeleri */
-.stats-tabs { grid-template-columns: repeat(7, 1fr); max-width: none; }
+.stats-tabs { grid-template-columns: repeat(7, 1fr); max-width: none; flex: none; }
 .stats-tabs button[aria-selected='true'] { background: var(--primary); color: #fff; box-shadow: 0 2px 8px var(--primary-glow); }
 
 /* Rozet özeti ve rozet sayfası */
@@ -755,3 +755,21 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .archive-notice small { display: block; color: var(--text-2); font-size: 13px; line-height: 18px; }
 .archive-notice .btn { min-height: 44px; padding: 0 18px; font-size: 14px; }
 .link-btn.muted-link { color: var(--text-2); }
+
+/* Skor tablosu */
+.board-tabs { grid-template-columns: repeat(4, 1fr); }
+.board-tabs button { font-size: 12.5px; white-space: nowrap; padding: 0 4px; }
+.board-card { display: flex; flex-direction: column; gap: 6px; padding: 16px; }
+.board-row {
+  display: grid; grid-template-columns: 36px minmax(0, 1fr) auto auto; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 12px; background: var(--surface-low);
+}
+.board-rank { font-weight: 800; text-align: center; color: var(--text-2); display: flex; justify-content: center; }
+.board-rank .icon { width: 22px; height: 22px; }
+.board-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board-games { color: var(--text-2); font-size: 12px; white-space: nowrap; }
+.board-points { font-weight: 800; font-variant-numeric: tabular-nums; min-width: 48px; text-align: right; }
+.board-row.top-1 .board-rank { color: #d99a00; }
+.board-row.top-2 .board-rank { color: #8b9bb0; }
+.board-row.top-3 .board-rank { color: #b8733b; }
+.board-row.self { background: var(--tint-lilac-bg); border: 1.5px solid var(--tint-lilac-bd); }

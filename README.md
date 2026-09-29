@@ -45,6 +45,8 @@ Takıldığında ampul simgesine basıp bir harf açtırabilirsin. İpucu 4. tah
 
 **Uzunluğa göre istatistik.** İstatistikler sayfasında sonuçlarını 4'ten 9'a her kelime uzunluğu için ayrı ayrı görebilirsin.
 
+**Skor tablosu.** Günün kelimesini bitirdiğinde, istersen puanın diğer oyuncuların da gördüğü skor tablosuna eklenir. Bugün, bu hafta, bu ay ve tüm zamanlar listeleri var; haftalık, aylık ve tüm zamanlar puanı günlük puanların toplamıdır. Tabloda yalnızca oyuncu adın ve puanın görünür. Katılmak isteğe bağlıdır ve Profil sayfasından kapatılabilir. Puanı telefon değil sunucu hesaplar, bu yüzden sahte skor gönderilemez.
+
 ## Uygulama nasıl çalışıyor
 
 **Kelimeler.** Tahmin ettiğin her kelime, TDK Güncel Türkçe Sözlük'teki 37.922 kelimeyle karşılaştırılır. Sözlükte olmayan bir kelimeyi yazarsan oyun kabul etmez. Soru olarak sorulan kelimeler ise bu listenin daha dar bir parçasıdır: günlük dilde sık geçen, argo ya da eskimiş olmayan 7.265 kelime. Böylece "duldalı" gibi pek kimsenin bilmediği kelimeler karşına çıkmaz.
@@ -55,7 +57,7 @@ Takıldığında ampul simgesine basıp bir harf açtırabilirsin. İpucu 4. tah
 
 **Puan ve ilerleme.** Kelimeyi ne kadar erken ve hızlı bulursan o kadar çok puan alırsın; uzun kelimeler daha fazla puan getirir. Üst üste kazandığın günler seriyi uzatır, seri de puanı katlar. Topladığın XP ile seviye ve lig (Bronz, Gümüş, Altın, Platin, Elmas) yükselir.
 
-**Verilerin.** Seri, istatistikler ve yarım kalan oyunlar yalnızca senin cihazında saklanır. Hesap açmak gerekmez, hiçbir bilgi bir sunucuya gönderilmez. Android uygulaması internet bağlantısı olmadan da çalışır.
+**Verilerin.** Seri, istatistikler ve yarım kalan oyunlar yalnızca senin cihazında saklanır. Hesap açmak gerekmez. Skor tablosuna katılırsan sunucuya yalnızca oyuncu adın, cihazına özel rastgele bir kimlik ve günün kelimesindeki tahminlerin gönderilir; e-posta, konum ya da başka bir kişisel bilgi toplanmaz. Android uygulaması internet bağlantısı olmadan da çalışır.
 
 ## Ekran görüntüleri
 

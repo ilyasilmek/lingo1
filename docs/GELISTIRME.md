@@ -94,3 +94,40 @@ Secrets yoksa release APK/AAB imzasız üretilir ve iş akışı bir uyarı veri
 2. **Build > Generate Signed App Bundle or APK** ile keystore dosyasını ve parolaları gir.
 
 Alternatif olarak `android/keystore.properties.example` dosyasını `android/keystore.properties` adıyla kopyalayıp doldurursan `./gradlew bundleRelease` doğrudan imzalı AAB üretir. `keystore.properties`, `*.jks` ve `*.keystore` git'e girmez.
+
+## Skor tablosu sunucusu
+
+`server/` klasörü, Cloudflare Workers ve D1 (SQLite) üzerinde çalışan küçük bir sunucudur. Cloudflare'in ücretsiz planı yeterlidir.
+
+- `server/src/index.js`: istekleri karşılar. Uç noktalar: `POST /v1/oyuncu`, `POST /v1/skor`, `GET /v1/tablo?donem=gun|hafta|ay|tum`, `POST /v1/gizle` (yönetici).
+- `server/migrations/`: veritabanı şeması.
+- `js/leaderboard-rules.js`: uygulamayla ortak kurallar. Sunucu, telefondan gelen puana güvenmez; günün kelimesini kendisi hesaplar, tahminleri doğrular ve puanı kendisi verir. Her oyuncu her gün için tek skor gönderebilir, tarih Türkiye saatine göre alınır.
+- Oyuncu kimliği cihazda üretilen rastgele bir kimlik ve gizli anahtardan oluşur; sunucu yalnızca anahtarın SHA-256 özetini saklar.
+
+### Kurulum
+
+`.github/workflows/skor.yml`, `server/` değiştiğinde ya da elle çalıştırıldığında sunucuyu Cloudflare'e kurar. Veritabanı yoksa oluşturur, şemayı uygular ve sunucu adresini iş akışı özetine yazar. Gereken repository secrets:
+
+| Secret | İçerik |
+| --- | --- |
+| `CLOUDFLARE_API_TOKEN` | "Edit Cloudflare Workers" şablonu + D1 düzenleme yetkisi olan API anahtarı |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare hesap kimliği |
+| `LINGO_ADMIN_KEY` | İsteğe bağlı. Uygunsuz adları gizlemek için yönetici anahtarı |
+
+Kurulumdan sonra sunucu adresi `js/config.js` içindeki `LEADERBOARD_URL` değerine yazılır. Bu değer boşken uygulama skor tablosunu "henüz hazır değil" olarak gösterir ve hiçbir veri göndermez.
+
+### Yerelde çalıştırma
+
+```bash
+cd server
+npx wrangler d1 migrations apply lingo-skor --local
+npx wrangler dev --local --port 8787
+```
+
+### Uygunsuz bir adı gizlemek
+
+```bash
+curl -X POST https://SUNUCU-ADRESİ/v1/gizle \
+  -H "authorization: Bearer YÖNETİCİ_ANAHTARI" -H "content-type: application/json" \
+  -d '{"id":"OYUNCU_KİMLİĞİ"}'
+```

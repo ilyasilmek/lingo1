@@ -13,7 +13,8 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^8.5.2",
-    "an-array-of-turkish-words": "1.2.0"
+    "an-array-of-turkish-words": "1.2.0",
+    "wrangler": "^4.143.1"
   },
   "license": "MIT",
   "dependencies": {

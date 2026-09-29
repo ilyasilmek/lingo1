@@ -4,3 +4,6 @@ www/
 *.jks
 *.keystore
 keystore.properties
+.wrangler/
+server/.wrangler/
+server/deploy.log

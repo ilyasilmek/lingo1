@@ -1,0 +1,18 @@
+# Lingo skor tablosu: Cloudflare Worker + D1 (ücretsiz plan)
+name = "lingo-skor"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+workers_dev = true
+
+# Kelime listeleri metin olarak koda gömülür
+[[rules]]
+type = "Text"
+globs = ["**/*.txt"]
+fallthrough = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "lingo-skor"
+# Cloudflare panelinde D1 veritabanı oluşturulunca verilen kimlik buraya yazılır.
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
