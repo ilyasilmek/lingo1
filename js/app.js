@@ -874,6 +874,17 @@ function meaningBlock(word, meanings = []) {
     </div>`;
 }
 
+// Sonuç ekranlarında ana eylemler ekranın altına sabitlenir; sayfa kaydırılmadan erişilir.
+function resultActions(primary) {
+  return `
+  <div class="result-actions">
+    <div class="result-actions-inner">
+      <button class="btn btn-soft result-home" data-go="#/" aria-label="Ana sayfa">${icon('home')}<span>Ana Sayfa</span></button>
+      ${primary}
+    </div>
+  </div>`;
+}
+
 function renderResult() {
   const r = lastResult;
   if (!r) return go('#/');
@@ -889,7 +900,7 @@ function renderResult() {
 
   app.innerHTML = `
   ${headerGame('Oyun Alanı')}
-  <main class="page">
+  <main class="page has-actions">
     <section class="result-head">
       <span class="badge primary">${icon('star_shine')}${esc(r.label)} tamamlandı</span>
       <h2>${title}</h2>
@@ -920,9 +931,10 @@ function renderResult() {
       </div>
     </section>` : ''}
 
-    <button class="btn btn-primary btn-block" data-classic>${r.mode === 'daily' ? 'KLASİK MODDA DEVAM ET' : 'SONRAKİ KELİMEYE GEÇ'} ${icon('arrow_forward')}</button>
-    <button class="btn btn-ghost" data-go="#/">${icon('home')}Ana Menüye Dön</button>
-  </main>`;
+  </main>
+  ${resultActions(
+    `<button class="btn btn-primary" data-classic>${r.mode === 'daily' ? 'KLASİK OYNA' : 'SONRAKİ KELİME'} ${icon('arrow_forward')}</button>`,
+  )}`;
 
   bindBack();
   bindCommon();
@@ -932,7 +944,7 @@ function renderResult() {
 function renderTimeResult(r) {
   app.innerHTML = `
   ${headerGame('Zamana Karşı')}
-  <main class="page">
+  <main class="page has-actions">
     <section class="result-head">
       <span class="badge primary">${icon('timer')}Süre doldu</span>
       <h2>${r.solved.length ? `${r.solved.length} KELİME!` : 'SÜRE BİTTİ'}</h2>
@@ -949,9 +961,8 @@ function renderTimeResult(r) {
       <div class="quest-row"><span class="muted">Yarım kalan: ${r.current}</span></div>
       ${meaningBlock(r.current, r.currentMeanings)}
     </section>
-    <button class="btn btn-primary btn-block" data-go="#/oyna/zaman">${icon('replay')}TEKRAR OYNA</button>
-    <button class="btn btn-ghost" data-go="#/">${icon('home')}Ana Menüye Dön</button>
-  </main>`;
+  </main>
+  ${resultActions(`<button class="btn btn-primary" data-go="#/oyna/zaman">${icon('replay')}TEKRAR OYNA</button>`)}`;
   bindBack();
   bindCommon();
   if (r.solved.length) confetti();
