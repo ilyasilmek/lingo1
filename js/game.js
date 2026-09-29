@@ -83,6 +83,25 @@ export function pickHint(answer, guesses, evaluations, revealed = [], rand = Mat
   return open[Math.floor(rand() * open.length)];
 }
 
+// İpucu kuralları: 3 tahmin yapılmadan (4. tahmin sırası gelmeden) ipucu verilmez,
+// bir kelimede en fazla HINT_MAX ipucu alınır ve bilinmeyen son harf hiçbir zaman açılmaz.
+export const HINT_AFTER_GUESSES = 3;
+export const HINT_MAX = 3;
+
+export function hintStatus(answer, guesses, evaluations, revealed = []) {
+  const known = new Set([0, ...revealed]);
+  evaluations.forEach((row) => row.forEach((s, i) => s === STATE.CORRECT && known.add(i)));
+  const unknown = [...answer].length - known.size;
+  const used = revealed.length;
+  const left = Math.max(0, Math.min(HINT_MAX - used, unknown - 1));
+  if (guesses.length < HINT_AFTER_GUESSES) {
+    return { allowed: false, left, reason: `İpucu ${HINT_AFTER_GUESSES + 1}. tahminde açılır` };
+  }
+  if (used >= HINT_MAX) return { allowed: false, left: 0, reason: `Bu kelimede ${HINT_MAX} ipucunun hepsini kullandın` };
+  if (unknown <= 1) return { allowed: false, left: 0, reason: 'Son harfi kendin bulmalısın' };
+  return { allowed: true, left, reason: null };
+}
+
 // Puan: erken ve hızlı bilmek ödüllendirilir, uzun kelime daha çok puan getirir.
 // Seri çarpanı en sonda uygulanır.
 export function streakMultiplier(streak) {

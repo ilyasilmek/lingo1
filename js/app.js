@@ -1,6 +1,6 @@
 import {
   MIN_LENGTH, MAX_LENGTH, DAILY_LENGTH, MAX_GUESSES, TIME_ATTACK_SECONDS, KEYBOARD_ROWS, STATE,
-  trUpper, isTurkishLetter, evaluateGuess, keyboardStates, knownLetters, pickHint,
+  trUpper, isTurkishLetter, evaluateGuess, keyboardStates, knownLetters, pickHint, hintStatus, HINT_MAX, HINT_AFTER_GUESSES,
   scoreRound, streakMultiplier, dayKey, dayNumber, msUntilMidnight,
   seededShuffle, dailyIndex, leagueFor, levelFor,
   cleanName, validateName, nameChangeStatus, NAME_MAX, NAME_FREE_AFTER_GAMES, EPOCH_DAY,
@@ -730,18 +730,18 @@ function paintKeyboard() {
 
 function paintHint() {
   const btn = app.querySelector('#hint-btn');
-  const label = app.querySelector('#hint-label');
   if (!btn) return;
+  const st = hintStatus([...session.answer], session.guesses, session.evaluations, session.hints);
   const coins = getProfile().coins;
-  if (session.freeHint) {
-    label.textContent = '1';
-    btn.title = 'Ücretsiz ipucu';
-    btn.disabled = session.finished;
-  } else {
-    label.textContent = `${HINT_COST}¢`;
-    btn.title = `${HINT_COST} coin karşılığı ipucu (bakiye: ${coins})`;
-    btn.disabled = session.finished || coins < HINT_COST;
-  }
+  const costText = session.freeHint ? 'ücretsiz' : `${HINT_COST} coin`;
+  const off = session.finished || !st.allowed || (!session.freeHint && coins < HINT_COST);
+  const locked = session.guesses.length < HINT_AFTER_GUESSES;
+  // Buton pasif görünür ama dokunulabilir kalır; dokununca neden açılmadığı söylenir.
+  btn.classList.toggle('is-off', off);
+  btn.setAttribute('aria-disabled', String(off));
+  btn.innerHTML = `${icon(locked ? 'lock' : 'lightbulb')}<span id="hint-label">${locked ? '' : st.left}</span>`;
+  btn.title = st.reason || `İpucu (${costText}), bu kelimede ${st.left} ipucu kaldı`;
+  btn.setAttribute('aria-label', btn.title);
 }
 
 function paintProgress() {
@@ -858,6 +858,7 @@ function submitGuess() {
     session.busy = false;
     paintKeyboard();
     paintProgress();
+    paintHint();
     if (session.mode === 'time') return afterTimeGuess(won, lost);
     if (won) {
       row.classList.add('win');
@@ -875,6 +876,11 @@ function submitGuess() {
 
 function useHint() {
   if (!session || session.finished || session.busy) return;
+  const st = hintStatus([...session.answer], session.guesses, session.evaluations, session.hints);
+  if (!st.allowed) {
+    feedback.invalid();
+    return toast(st.reason);
+  }
   const idx = pickHint([...session.answer], session.guesses, session.evaluations, session.hints);
   if (idx === null) return toast('Tüm harflerin yeri zaten belli');
   if (session.freeHint) {
@@ -1357,7 +1363,7 @@ function renderProfile() {
         <li><b style="color:var(--present-ink)">Turuncu</b>: harf kelimede var ama başka yerde.</li>
         <li><b>Mavi-gri</b>: harf kelimede yok.</li>
         <li>Tahminler TDK Güncel Türkçe Sözlük'teki kelimelerden olmalı.</li>
-        <li>Her kelimede bir ipucu bedava. Sonrakiler ${HINT_COST} coin.</li>
+        <li>İpucu 4. tahminde açılır. Bir kelimede en fazla ${HINT_MAX} ipucu alınır; ilki bedava, sonrakiler ${HINT_COST} coin. Son bilinmeyen harf ipucuyla açılmaz.</li>
         <li>Oyuncu adını her ${NAME_FREE_AFTER_GAMES} oyunda bir ücretsiz değiştirebilirsin; beklemek istemezsen coin ödersin.</li>
         <li>Seri koruyucu, kaçırdığın bir günü kendiliğinden kapatır. En fazla ${FREEZE_MAX} tane taşıyabilirsin.</li>
         <li>Zor modda yeşil harfler yerinde kalmalı, turuncu harfler tahminde kullanılmalı.</li>

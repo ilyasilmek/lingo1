@@ -136,3 +136,38 @@ test('ad değiştirme: 10 oyun sonra ücretsiz, öncesinde 1000 coin', () => {
   st = nameChangeStatus({ gamesTotal: 25, nameChangedAt: 20, coins: 0 });
   assert.equal(st.gamesLeft, 5);
 });
+
+import { hintStatus, HINT_MAX } from '../js/game.js';
+
+test('ipucu: 3 tahminden önce kapalı', () => {
+  const g = ['KALEM', 'KİTAP'];
+  const st = hintStatus('KABLO', g, g.map((w) => evaluateGuess(w, 'KABLO')));
+  assert.equal(st.allowed, false);
+  assert.match(st.reason, /4\. tahmin/);
+});
+
+test('ipucu: 4. tahminde açılır, en fazla 3 tane', () => {
+  const g = ['KARAKTER', 'KAPSAMLI', 'KARAMSAR'];
+  const ev = g.map((w) => evaluateGuess(w, 'KARANLIK'));
+  // Bilinen: K, A, R, A (0-3). Bilinmeyen 4 harf var, 3 ipucu alınabilir.
+  assert.equal(hintStatus('KARANLIK', g, ev).left, 3);
+  assert.equal(hintStatus('KARANLIK', g, ev).allowed, true);
+  assert.equal(hintStatus('KARANLIK', g, ev, [4, 5]).left, 1);
+  const full = hintStatus('KARANLIK', g, ev, [4, 5, 6]);
+  assert.equal(full.allowed, false);
+  assert.equal(full.left, 0);
+  assert.equal(HINT_MAX, 3);
+});
+
+test('ipucu: son bilinmeyen harf açılmaz (4 harfte en fazla 2)', () => {
+  const g = ['EKİM', 'ELÇİ', 'EMİR'];
+  const ev = g.map((w) => evaluateGuess(w, 'ELMA'));
+  let st = hintStatus('ELMA', g, ev);
+  // E açık, L ikinci tahminde yeşil; bilinmeyen: M, A
+  assert.equal(st.left, 1);
+  st = hintStatus('ELMA', g, ev, [2]);
+  assert.equal(st.allowed, false);
+  assert.match(st.reason, /Son harfi/);
+  const none = hintStatus('ELMA', g, g.map(() => ['correct', 'absent', 'absent', 'absent']));
+  assert.equal(none.left, 2);
+});

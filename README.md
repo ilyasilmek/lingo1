@@ -21,7 +21,7 @@ Türkçe kelime tahmin oyunu. Kelimenin ilk harfi baştan açık gelir, geri kal
 
 İlk açılışta senden bir oyuncu adı istenir. Adını her 10 oyunda bir ücretsiz değiştirebilirsin; beklemek istemezsen 1000 coin ödersin. Oyun sesleri ve tuşlardaki titreşim Profil sayfasındaki Ayarlar bölümünden açılıp kapatılır.
 
-Takıldığında ampul simgesine basıp bir harf açtırabilirsin. Her kelimede bir ipucu bedava, sonrakiler oyunda kazandığın coin'lerle alınır.
+Takıldığında ampul simgesine basıp bir harf açtırabilirsin. İpucu 4. tahminde açılır ve bir kelimede en fazla 3 kez kullanılır; ilki bedava, sonrakiler oyunda kazandığın coin'lerle alınır. Bilinmeyen son harf ipucuyla açılmaz, onu her zaman sen bulursun.
 
 ## Oyun modları
 

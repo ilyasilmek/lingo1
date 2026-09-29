@@ -372,7 +372,8 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .timer { display: inline-flex; align-items: center; gap: 4px; font-weight: 800; color: var(--primary-ink); font-variant-numeric: tabular-nums; }
 .timer.low { color: var(--danger); }
 .hint-btn { background: var(--present-soft); color: var(--present-ink); }
-.hint-btn:disabled { opacity: 0.45; }
+.hint-btn:disabled, .hint-btn.is-off { opacity: 0.45; }
+.hint-btn .icon { width: 16px; height: 16px; }
 
 .legend { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--text-2); flex-wrap: wrap; }
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 999px; margin-right: 4px; vertical-align: -1px; }
