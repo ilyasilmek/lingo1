@@ -33,8 +33,6 @@ Takıldığında ampul simgesine basıp bir harf açtırabilirsin. İpucu 4. tah
 
 **Arşiv.** Kaçırdığın son 60 günün kelimelerini ana sayfadaki "Geçmiş günlerin kelimeleri" bağlantısından oynayabilirsin. Arşiv oyunları ödül kazandırır ama seriyi uzatmaz; yoksa kaçırılan günler sonradan kapatılabilirdi.
 
-Düello ve Özel Oda modları henüz yok, ana sayfada "Yakında" olarak duruyor.
-
 ## Seri, rozetler ve ayarlar
 
 **Seri koruyucu.** Günün kelimesini bildiğin her gün serin bir artar. Bir günü kaçırırsan seri sıfırlanır, ama elinde seri koruyucu varsa o gün kendiliğinden kapatılır. Koruyucuyu Profil sayfasındaki mağazadan 200 coin'e alırsın, en fazla 2 tane taşıyabilirsin.

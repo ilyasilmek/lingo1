@@ -623,8 +623,6 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 :root[data-theme='dark'] .sky-ink { color: #8fb6f2; }
 :root[data-theme='dark'] .rose-ink { color: #f19ab7; }
 .badge.tint-chip { background: var(--tint-dot); }
-.tint-muted { --tint-bg: var(--surface-low); --tint-bd: var(--outline); }
-.mode.tint-muted { filter: grayscale(1); opacity: 0.65; }
 
 /* Sonuç ekranı: altta sabit eylem çubuğu */
 .page.has-actions { padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px)); }
