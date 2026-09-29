@@ -100,3 +100,17 @@ jobs:
           else
             echo "LINGO_ADMIN_KEY tanımlı değil, atlandı."
           fi
+
+      - name: Sunucu cevap veriyor mu?
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          URL=https://lingo-skor.stitchilyas.workers.dev
+          for i in 1 2 3 4 5; do
+            if curl -fsS "$URL/" ; then break; fi
+            sleep 5
+          done
+          echo
+          curl -fsS "$URL/v1/tablo?donem=gun" | tee /dev/stderr | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);if(!Array.isArray(j.entries))process.exit(1);console.log("\nTablo tamam, oyuncu:",j.players)})'
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$URL/v1/skor" -H 'content-type: application/json' -d '{"id":"x"}')
+          echo "Geçersiz istek kodu: $code"
+          test "$code" = "401"
