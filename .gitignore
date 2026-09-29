@@ -9,3 +9,4 @@ server/.wrangler/
 server/deploy.log
 server/count.json
 server/count.err
+server/.dev.vars
