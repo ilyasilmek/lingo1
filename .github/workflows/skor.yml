@@ -64,10 +64,14 @@ jobs:
         working-directory: server
         run: |
           set -o pipefail
-          if ! npx wrangler d1 list --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.exit(JSON.parse(s).some(d=>d.name==="lingo-skor")?0:1))'; then
+          OLD_ID=$(npx wrangler d1 list --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const db=JSON.parse(s).find(d=>d.name==="lingo-skor");process.stdout.write(db?db.uuid:"")})')
+          if [ -z "$OLD_ID" ]; then
             echo "Veritabanı yok, taşınacak bir şey yok."
             exit 0
           fi
+          echo "Taşınacak veritabanı: $OLD_ID"
+          # Sayım komutu wrangler.toml'daki kimliği kullanır; gerçek kimlik yazılmadan sorgu yanlış veritabanına gider.
+          sed -i "s/^database_id = .*/database_id = \"$OLD_ID\"/" wrangler.toml
           set +e
           for i in 1 2 3; do
             npx wrangler d1 execute lingo-skor --remote --json --command "SELECT (SELECT COUNT(*) FROM players) + (SELECT COUNT(*) FROM scores) AS n" > count.json 2> count.err
