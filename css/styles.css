@@ -641,3 +641,9 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   .result-home span { display: none; }
   .result-home { padding: 0; width: 56px; }
 }
+
+/* Dar telefonlarda ONAY tuşu yazısı sığsın diye tik simgesi gizlenir */
+@media (max-width: 430px) {
+  .key.enter .icon { display: none; }
+  .key.enter { font-size: 12px; letter-spacing: 0; }
+}

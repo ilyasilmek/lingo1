@@ -1,123 +1,89 @@
 # Lingo
 
-Türkçe kelime tahmin oyunu (4-9 harf). Arayüz, `design/` klasöründeki Stitch ekranlarına ve `DESIGN.md` tasarım sistemine göre yazıldı.
+Türkçe kelime tahmin oyunu. Kelimenin ilk harfi baştan açık gelir, geri kalanını altı denemede bulmaya çalışırsın. Her tahminden sonra harfler renklenir ve seni doğru kelimeye yaklaştırır. Oyun bitince kelimenin anlamı gösterilir.
 
-## Çalıştırma
+<p align="center">
+  <img src="docs/ekranlar/01-ana-sayfa.png" width="230" alt="Ana sayfa">
+  <img src="docs/ekranlar/03-oyun-alani.png" width="230" alt="Oyun alanı">
+  <img src="docs/ekranlar/06-zafer.png" width="230" alt="Kazanma ekranı">
+</p>
 
-Build adımı yok. Tarayıcıda ES modülleriyle çalışır, ama `file://` üzerinden açılamaz (modüller HTTP ister).
+## Nasıl oynanır
 
-```bash
-npm start          # http://localhost:5173
-npm test           # oyun mantığı ve kelime listesi testleri (node:test)
-```
+1. Ana sayfada kelime uzunluğunu seç: 4 ile 9 harf arası.
+2. Bir oyun modu seç. Tahtanın ilk satırında kelimenin ilk harfi hazır bekler.
+3. Kalan harfleri yazıp **ONAY**'a bas. Tahmin, sözlükte bulunan gerçek bir kelime olmalı.
+4. Harflerin rengine bak:
+   - **Yeşil:** harf doğru yerde.
+   - **Turuncu:** harf kelimede var ama başka yerde.
+   - **Mavi-gri:** harf kelimede yok.
+5. Doğru yerini bulduğun harfler bir sonraki satırda soluk olarak gösterilir. Altı denemede kelimeyi bulursan kazanırsın.
 
-Herhangi bir statik sunucu da olur (`python3 -m http.server`, GitHub Pages vb.).
+Takıldığında ampul simgesine basıp bir harf açtırabilirsin. Her kelimede bir ipucu bedava, sonrakiler oyunda kazandığın coin'lerle alınır.
 
-## Kurallar
+## Oyun modları
 
-- Kelimenin **ilk harfi baştan açıktır** ve silinemez. Kalan harfler 6 denemede bulunur.
-- Doğru yerde bulunan harfler ve ipuçları sonraki satırda soluk olarak gösterilir. Oyuncu yine de kelimenin tamamını yazar.
-- Tahmin, seçilen uzunlukta ve TDK Güncel Türkçe Sözlük'te bulunan bir kelime olmalı.
+**Günün Kelimesi.** Herkes aynı gün aynı 5 harfli kelimeyi arar. Kelime gece yarısı değişir, ödülü iki katıdır.
 
-## Neler var
+**Klasik.** Seçtiğin uzunlukta rastgele bir kelime, süre sınırı yok. Oyunu yarıda bırakırsan kaydedilir. Tekrar açtığında devam etmek mi yoksa yeni oyun mu istediğin sorulur.
 
-- **Kelime uzunluğu**: ana sayfadan 4-9 arası seçilir. Klasik ve Zamana Karşı modları tahtayı ve kelimeleri bu uzunluğa göre hazırlar.
-- **Günün kelimesi**: herkes için aynı 5 harfli kelime, gece yarısı yenilenir. Yarım kalan oyun kaldığı yerden devam eder, ödül iki katıdır.
-- **Klasik**: rastgele kelime, süre yok. Yarım kalan oyun saklanır. Klasik tekrar açılınca "Devam / Yeni oyun" sorulur. En az bir tahmin yapılmış oyunu bırakıp yenisini açmak kayıp sayılır. Hiç tahmin yapılmamış oyun, seçili uzunluk değiştiyse sormadan yenisiyle değiştirilir.
-- **Zamana Karşı**: 60 saniyede bildiğin kadar kelime. Bilinen ya da kaçan kelimeden sonra yenisine geçilir.
-- Çevirme animasyonu, konfeti, ipucu (kelime başına 1 bedava, sonrası 25 coin).
-- Seri, XP, seviye, lig, tahmin dağılımı ve günlük görevler.
-- Açık/koyu tema (sistem ayarını izler, profilden değiştirilebilir).
-- Fiziksel klavye desteği. Türkçe klavyede `i`/`ı` doğru eşlenir; İngilizce klavyede `I` yalnızca ekran klavyesinden girilebilir.
+**Zamana Karşı.** 60 saniyede bilebildiğin kadar kelime bil. Bir kelimeyi bulunca ya da altı hakkın bitince hemen yenisi gelir.
 
-## Tasarımdan farklı olanlar
+Düello ve Özel Oda modları henüz yok, ana sayfada "Yakında" olarak duruyor.
 
-Tasarımdaki bazı öğeler sunucu gerektiriyor ve bu sürümde yok:
+## Uygulama nasıl çalışıyor
 
-- Düello PvP ve Özel Oda kartları "Yakında" olarak duruyor, tıklanmıyor.
-- Arkadaşlar listesi, "çevrimiçi oyuncu" sayacı ve liderlik tablosu çıkarıldı. Alt menüdeki "Liderler" yerine yerel **İstatistik** sayfası var.
-- Tasarımdaki "TDK sözlük kökeni" kartı yerine "Anlamı" kartı var. Anlamlar KeNet'ten (Türkçe WordNet) gelir, her cevap kelimesinde en fazla iki anlam gösterilir.
+**Kelimeler.** Tahmin ettiğin her kelime, TDK Güncel Türkçe Sözlük'teki 37.922 kelimeyle karşılaştırılır. Sözlükte olmayan bir kelimeyi yazarsan oyun kabul etmez. Soru olarak sorulan kelimeler ise bu listenin daha dar bir parçasıdır: günlük dilde sık geçen, argo ya da eskimiş olmayan 7.265 kelime. Böylece "duldalı" gibi pek kimsenin bilmediği kelimeler karşına çıkmaz.
 
-Tüm veriler tarayıcının `localStorage` alanında (`lingo:v1`) tutulur.
+**Anlamlar.** Oyun sonundaki "Anlamı" kartı, Türkçe WordNet (KeNet) adlı açık bir sözlük veritabanından gelir. Soru olarak sorulabilen her kelimenin en az bir anlamı vardır.
 
-## Dosyalar
+**Günün kelimesi.** Kelime listesi sabit bir sırayla karıştırılır ve her güne bir kelime düşer. Bu yüzden aynı gün oynayan herkes aynı kelimeyi görür; bunun için bir sunucuya gerek yoktur.
 
-| Yol | İçerik |
-| --- | --- |
-| `js/game.js` | DOM'suz oyun mantığı: tahmin değerlendirme, puanlama, günlük kelime seçimi |
-| `js/app.js` | Ekranlar, yönlendirme (`#/`, `#/oyna/...`, `#/sonuc`), oyun döngüsü |
-| `js/storage.js` | Profil, seri ve istatistiklerin kalıcı tutulması |
-| `js/wordlist.js` | `data/` altındaki listeleri gerektiğinde yükler |
-| `data/valid-N.txt` | N harfli tüm TDK maddeleri (tahmin doğrulaması) |
-| `data/answers-N.txt` | Cevap olarak sorulan N harfli kelimeler |
-| `data/meanings-N.json` | Cevap kelimelerinin anlamları (KeNet, GPL-3.0) |
-| `js/icons.js` | Kullanılan Material Symbols ikonlarının SVG yolları |
-| `assets/fonts/` | Inter (OFL-1.1), yerel olarak sunulur |
+**Puan ve ilerleme.** Kelimeyi ne kadar erken ve hızlı bulursan o kadar çok puan alırsın; uzun kelimeler daha fazla puan getirir. Üst üste kazandığın günler seriyi uzatır, seri de puanı katlar. Topladığın XP ile seviye ve lig (Bronz, Gümüş, Altın, Platin, Elmas) yükselir.
 
-## Kelime listeleri
+**Verilerin.** Seri, istatistikler ve yarım kalan oyunlar yalnızca senin cihazında saklanır. Hesap açmak gerekmez, hiçbir bilgi bir sunucuya gönderilmez. Android uygulaması internet bağlantısı olmadan da çalışır.
 
-`data/` altındaki dosyalar `scripts/build-words.mjs` ile üretilir. Kaynak, TDK Güncel Türkçe Sözlük 12. baskının [ogun/guncel-turkce-sozluk](https://github.com/ogun/guncel-turkce-sozluk) deposundaki dökümüdür (99.236 madde).
+## Ekran görüntüleri
 
-- **Geçerli tahminler:** özel ad olmayan, yalnızca Türk alfabesinden oluşan tüm maddeler. Şapkalı harfler düzleştirilir (â→a, î→i, û→u). Boşluklu ya da tireli maddeler alınmaz. Toplam 37.922 kelime.
-- **Cevaplar:** bu maddelerden, bir metin derleminde ([an-array-of-turkish-words](https://github.com/hexapode/an-array-of-turkish-words), MIT) en sık geçen 60.000 kelime arasında yer alanlar. Tüm anlamları argo, kaba, eskimiş ya da yöresel olarak işaretlenmiş kelimeler ve kısa bir engel listesi çıkarılır. KeNet'te tanımı olmayan kelimeler de cevap olmaz, böylece oyun sonunda her kelimenin anlamı gösterilebilir. Toplam 7.265 kelime.
-- **Anlamlar:** [KeNet](https://github.com/StarlangSoftware/TurkishWordNet), Işık Üniversitesi'nin hazırladığı Türkçe WordNet. Tanımlar anlam numarasına göre sıralanır, "Bir tarih" gibi yer tutucular ve kelimenin kendisini içeren tanımlar atlanır, en fazla iki anlam alınır.
+<table>
+  <tr>
+    <td align="center"><img src="docs/ekranlar/01-ana-sayfa.png" width="200" alt=""><br>Ana sayfa ve günün kelimesi</td>
+    <td align="center"><img src="docs/ekranlar/02-oyun-modlari.png" width="200" alt=""><br>Kelime uzunluğu ve oyun modları</td>
+    <td align="center"><img src="docs/ekranlar/03-oyun-alani.png" width="200" alt=""><br>5 harfli oyun, üçüncü tahmin</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/ekranlar/04-sekiz-harf.png" width="200" alt=""><br>8 harfli tahta</td>
+    <td align="center"><img src="docs/ekranlar/05-devam-penceresi.png" width="200" alt=""><br>Yarım kalan oyuna devam</td>
+    <td align="center"><img src="docs/ekranlar/06-zafer.png" width="200" alt=""><br>Kazanma ve kelimenin anlamı</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/ekranlar/07-kaybetme.png" width="200" alt=""><br>Kaybetme ekranı</td>
+    <td align="center"><img src="docs/ekranlar/08-zamana-karsi.png" width="200" alt=""><br>Zamana Karşı, koyu tema</td>
+    <td align="center"><img src="docs/ekranlar/09-istatistik.png" width="200" alt=""><br>İstatistikler</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/ekranlar/10-profil.png" width="200" alt=""><br>Profil, tema ve kurallar</td>
+    <td></td>
+    <td></td>
+  </tr>
+</table>
 
-| Harf | Geçerli | Cevap |
-| --- | ---: | ---: |
-| 4 | 2.050 | 927 |
-| 5 | 5.456 | 1.807 |
-| 6 | 6.042 | 1.430 |
-| 7 | 7.933 | 1.383 |
-| 8 | 8.957 | 1.123 |
-| 9 | 7.484 | 595 |
+## Kaynaklar
 
-Sözlükteki her madde cevap olarak sorulsaydı "duldalı", "duysal" gibi pek bilinmeyen kelimeler de çıkardı. Derlem süzgeci bunu azaltır ama kusursuz değildir: derlem web metinlerinden çıkarıldığı için cevaplar arasında hâlâ garip kelimeler kalabilir.
+| Kaynak | Ne için kullanıldı | Lisans |
+| --- | --- | --- |
+| [TDK Güncel Türkçe Sözlük](https://sozluk.gov.tr/), 12. baskı ([ogun/guncel-turkce-sozluk](https://github.com/ogun/guncel-turkce-sozluk) dökümü) | Geçerli kelime listesi (yalnızca kelimelerin kendisi) | Sözlük içeriği TDK'ya aittir |
+| [KeNet, Türkçe WordNet](https://github.com/StarlangSoftware/TurkishWordNet) (Işık Üniversitesi) | Kelime anlamları | GPL-3.0 |
+| [an-array-of-turkish-words](https://github.com/hexapode/an-array-of-turkish-words) | Kelimelerin ne kadar yaygın olduğunu ölçmek | MIT |
+| Google Stitch tasarımı ve Pastel Word Game System | Arayüz tasarımı (`design/`, `DESIGN.md`) | |
+| [Inter](https://rsms.me/inter/) | Yazı tipi | OFL-1.1 |
+| [Material Symbols](https://fonts.google.com/icons) | Simgeler | Apache-2.0 |
+| [Capacitor](https://capacitorjs.com/) | Android uygulaması olarak paketleme | MIT |
 
-### Lisanslar
+## Açık kaynak
 
-- TDK dökümünden yalnızca madde başları (kelimelerin kendisi) alınır, TDK tanımları ve örnek cümleleri depoda yoktur.
-- `data/meanings-*.json` KeNet'ten türetilmiştir. KeNet'in GitHub deposu GPL-3.0 lisanslıdır (metni `data/LICENSE-KeNet.txt`), aynı veriyi taşıyan `nlptoolkit-wordnet` npm paketi ise ISC olarak etiketlenmiş. Güvenli taraf GPL-3.0 kabul etmektir: bu dosyalar GPL-3.0 altında dağıtılır, projenin geri kalanı MIT'dir.
-- KeNet'in ilk sürümü TDK Güncel Türkçe Sözlük'ün 2011 baskısından derlenmiştir ve tanımların bir kısmı TDK metnine çok yakındır. Uygulama ticari olarak yayınlanacaksa bu konuda hukuki görüş almak doğru olur.
+Lingo açık kaynaklıdır ve [MIT lisansı](LICENSE) ile dağıtılır. Kodu indirebilir, değiştirebilir, kendi sürümünü yayımlayabilir ya da başka projelerde kullanabilirsin. Tek koşul, lisans metnini ve telif satırını korumak.
 
-Listeleri yeniden üretmek için:
+Kelime anlamları dosyaları KeNet'ten geldiği için GPL-3.0 lisansına tabidir; bu dosyaları değiştirip dağıtırsan onları da aynı lisansla paylaşman gerekir.
 
-```bash
-curl -LO https://raw.githubusercontent.com/ogun/guncel-turkce-sozluk/master/sozluk/v12/v12.gts.json.tar.gz
-tar xzf v12.gts.json.tar.gz
-npm pack nlptoolkit-wordnet && tar xzf nlptoolkit-wordnet-*.tgz   # package/turkish_wordnet.xml
-npm install
-npm run build:words -- ./gts.json ./package/turkish_wordnet.xml
-```
-
-## Android (APK / AAB)
-
-Web uygulaması [Capacitor](https://capacitorjs.com/) ile Android'e paketlenir. `android/` klasörü Android Studio'da doğrudan açılabilen bir Gradle projesidir; uygulama kimliği `com.stitchilyas.lingo`, sürüm adı `android/app/build.gradle` içindeki `defaultVersionName` değerinden gelir.
-
-```bash
-npm install
-npm run android:sync     # web dosyalarını www/ klasörüne kopyalar ve android/ projesine aktarır
-```
-
-Web tarafında bir şey değiştiğinde Android Studio'da derlemeden önce `npm run android:sync` çalıştırılmalı.
-
-### GitHub Actions
-
-`.github/workflows/android.yml` her push'ta testleri çalıştırır, ardından debug APK, release APK ve release AAB üretir. Çıktılar iş akışı sayfasındaki **Artifacts** bölümünden indirilir. `versionCode` her çalıştırmada artar (Play Store bunu şart koşar).
-
-Release çıktılarının imzalanması için şu repository secrets tanımlanmalı:
-
-| Secret | İçerik |
-| --- | --- |
-| `LINGO_KEYSTORE_BASE64` | `.jks` dosyasının base64 hali (`base64 -w0 lingo-upload.jks`) |
-| `LINGO_KEYSTORE_PASSWORD` | Keystore parolası |
-| `LINGO_KEY_ALIAS` | Anahtar adı |
-| `LINGO_KEY_PASSWORD` | Anahtar parolası |
-
-Secrets yoksa release APK/AAB imzasız üretilir ve iş akışı bir uyarı verir.
-
-### Android Studio'da imzalama
-
-1. `android/` klasörünü Android Studio'da aç.
-2. **Build > Generate Signed App Bundle or APK** ile keystore dosyasını ve parolaları gir.
-
-Alternatif olarak `android/keystore.properties.example` dosyasını `android/keystore.properties` adıyla kopyalayıp doldurursan `./gradlew bundleRelease` doğrudan imzalı AAB üretir. `keystore.properties`, `*.jks` ve `*.keystore` git'e girmez.
+Hata bildirimleri, yeni kelime önerileri ve katkılar memnuniyetle karşılanır. Projeyi çalıştırmak, kelime listelerini yeniden üretmek ve Android sürümünü derlemek için gereken her şey [geliştirici notlarında](docs/GELISTIRME.md) anlatılıyor.
