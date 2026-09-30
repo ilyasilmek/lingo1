@@ -13,7 +13,7 @@ import {
   FREEZE_COST, FREEZE_MAX, REMINDER_TIMES, emptyLengthStats, archiveAccess, openArchiveDay,
 } from './progress.js';
 import { remindersSupported, requestReminderPermission, syncReminders } from './notifications.js';
-import { leaderboardReady, submitDaily, flushScores, claimName, fetchBoard } from './leaderboard.js';
+import { leaderboardReady, submitDaily, flushScores, claimName, syncName, fetchBoard } from './leaderboard.js';
 import { PERIODS, PERIOD_LABELS } from './leaderboard-rules.js';
 import {
   getProfile, updateProfile, resetProfile, quests, currentStreak, recordRound, countGame,
@@ -191,15 +191,21 @@ function nameDialog({ title, body, initial = '', confirmLabel = 'Kaydet', requir
 }
 
 // İlk açılışta ad sorulur. Veriler sıfırlanınca da yeniden sorulur.
+// Ad sunucuda bu oyuncuya ayrılır; başkasındaysa pencere hata mesajıyla açık kalır.
+// Bağlantı yoksa ad şimdilik kabul edilir ve bağlantı gelince ayrılır (verifyName).
 let askingName = false;
 async function ensureName() {
   if (askingName || getProfile().nameSet) return;
   askingName = true;
   const name = await nameDialog({
     title: 'Hoş geldin!',
-    body: 'Başlamadan önce sana nasıl hitap edelim? Adın yalnızca bu cihazda saklanır.',
+    body: 'Başlamadan önce sana nasıl hitap edelim? Her ad tek bir oyuncuya aittir; başka biri kullanıyorsa farklı bir ad seçmen istenir.',
     confirmLabel: 'Başla',
     required: true,
+    check: leaderboardReady() ? async (n) => {
+      const r = await claimName(n);
+      return r.ok || r.offline ? null : r.error;
+    } : null,
   });
   const p = getProfile();
   updateProfile({ name, nameSet: true, nameChangedAt: p.gamesTotal });
@@ -212,20 +218,21 @@ async function changeName() {
   const p = getProfile();
   const st = nameChangeStatus(p);
   if (!st.free && !st.canPay) return;
-  // Skor tablosundaysa yeni ad önce sunucuda ayrılır; alınmışsa coin harcanmadan pencere açık kalır.
-  const onBoard = leaderboardReady() && p.leaderboard === true;
+  // Yeni ad önce sunucuda ayrılır; alınmışsa coin harcanmadan pencere açık kalır.
+  const online = leaderboardReady();
+  const onBoard = online && p.leaderboard === true;
   const name = await nameDialog({
     title: 'Adını değiştir',
     body: (st.free
       ? 'Yeni adını yaz. Bu değişiklik ücretsiz.'
       : `Yeni adını yaz. Bu değişiklik <b>${fmt(st.cost)} coin</b> tutar. Bakiyen: ${fmt(p.coins)} coin.`)
-      + (onBoard ? ' Skor tablosunda her ad tek bir oyuncuya aittir.' : ''),
+      + (online ? ' Her ad tek bir oyuncuya aittir.' : ''),
     initial: p.name,
     confirmLabel: st.free ? 'Kaydet' : `${fmt(st.cost)} coin öde ve kaydet`,
-    check: onBoard ? async (n) => {
+    check: online ? async (n) => {
       if (n === p.name) return null;
       const r = await claimName(n);
-      if (r.offline) return 'Skor tablosundaki adını değiştirmek için internet bağlantısı gerekiyor.';
+      if (r.offline) return 'Adını değiştirmek için internet bağlantısı gerekiyor.';
       return r.ok ? null : r.error;
     } : null,
   });
@@ -243,12 +250,12 @@ async function changeName() {
   render();
 }
 
-// Skor tablosunda kullanılan ad başka bir oyuncudaysa yeni ad seçtirir. Bu değişiklik ücretsizdir
+// Ad sunucuda başka bir oyuncudaysa yeni ad seçtirir. Bu değişiklik ücretsizdir
 // ve ad değiştirme sayacını etkilemez. Ad sunucuda ayrılırsa true döner.
 async function pickBoardName(reason) {
   const name = await nameDialog({
     title: 'Başka bir ad seç',
-    body: `${esc(reason || 'Bu ad skor tablosunda başka bir oyuncu tarafından kullanılıyor.')} Skor tablosunda her ad tek bir oyuncuya aittir.`,
+    body: `${esc(reason || `"${getProfile().name}" adı başka bir oyuncu tarafından kullanılıyor.`)} Her ad tek bir oyuncuya aittir, lütfen farklı bir ad seç.`,
     initial: getProfile().name,
     confirmLabel: 'Bu adı kullan',
     check: async (n) => {
@@ -258,7 +265,7 @@ async function pickBoardName(reason) {
   });
   if (!name) return false;
   updateProfile({ name });
-  toast(`Skor tablosunda artık ${name} adıyla görüneceksin`, 2800);
+  toast(`Adın artık ${name}`, 2800);
   return true;
 }
 
@@ -275,9 +282,10 @@ async function joinBoard() {
   return false;
 }
 
-// Ad çakışması yüzünden bekleyen skorlar için uyarı kartı.
-const nameTakenCard = () => (getProfile().leaderboard === true && getProfile().boardNameTaken ? `
-  <div class="archive-notice">${icon('leaderboard')}<div><strong>Adın skor tablosunda başka bir oyuncuda</strong><small>Yeni bir ad seçene kadar skorların gönderilmez, sırada bekler.</small></div>
+// Ad başka bir oyuncudaysa uyarı kartı. Skor tablosundaysa skorlar yeni ad seçilene kadar bekler.
+const nameTakenCard = () => (getProfile().boardNameTaken ? `
+  <div class="archive-notice">${icon('leaderboard')}<div><strong>Adın başka bir oyuncuda</strong><small>${getProfile().leaderboard === true
+    ? 'Yeni bir ad seçene kadar skorların gönderilmez, sırada bekler.' : 'Her ad tek bir oyuncuya aittir, lütfen farklı bir ad seç.'}</small></div>
     <button class="btn btn-primary" id="fix-board-name">Ad seç</button></div>` : '');
 
 function bindNameTaken() {
@@ -1694,8 +1702,26 @@ async function refreshReminders() {
   });
 }
 
+// Çevrimdışıyken girilen ya da eski sürümden kalan ad sunucuda ayrılır.
+// Ad başka bir oyuncudaysa hata mesajıyla yeni ad istenir; vazgeçilirse uyarı kartı kalır.
+let verifyingName = false;
+async function verifyName() {
+  if (verifyingName) return;
+  verifyingName = true;
+  try {
+    const problem = await syncName();
+    if (!problem) return;
+    if (await pickBoardName(getProfile().boardNameTaken ? null : problem)) await flushScores();
+    render();
+  } finally {
+    verifyingName = false;
+  }
+}
+
 applyTheme(getProfile().theme);
 window.addEventListener('hashchange', render);
+window.addEventListener('online', verifyName);
 render();
 refreshReminders();
+verifyName();
 flushScores();

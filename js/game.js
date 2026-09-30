@@ -184,7 +184,7 @@ export function levelFor(xp) {
   return 1 + Math.floor(Math.sqrt(Math.max(0, xp) / 100));
 }
 
-// Oyuncu adı. Uygulama sunucusuz olduğu için bu kurallar yalnızca bu cihazda geçerlidir.
+// Oyuncu adı. Adın benzersizliğini sunucu denetler (js/leaderboard-rules.js, nameKey).
 export const NAME_MIN = 2;
 export const NAME_MAX = 16;
 export const NAME_FREE_AFTER_GAMES = 10;
