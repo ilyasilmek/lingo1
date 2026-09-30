@@ -24,8 +24,10 @@ android {
         applicationId "com.stitchilyas.lingo"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        // CI her derlemede artan bir sürüm kodu verir (Play Store bunu şart koşar).
-        versionCode Integer.parseInt(System.getenv('LINGO_VERSION_CODE') ?: '1')
+        // Play Store her yüklemede daha büyük bir sürüm kodu ister. 1.54.02 sürümü
+        // 1540200 + derleme numarasıyla yayımlandı; CI 1540300 + derleme numarası verir.
+        // Android Studio'da yerel derleme 1540300 alır.
+        versionCode Integer.parseInt(System.getenv('LINGO_VERSION_CODE') ?: '1540300')
         versionName defaultVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {

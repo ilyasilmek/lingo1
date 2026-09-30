@@ -75,16 +75,16 @@ Web tarafında bir şey değiştiğinde Android Studio'da derlemeden önce `npm 
 
 ### GitHub Actions
 
-`.github/workflows/android.yml` her push'ta testleri çalıştırır, ardından debug APK, release APK ve release AAB üretir. Çıktılar iş akışı sayfasındaki **Artifacts** bölümünden indirilir. `versionCode` her çalıştırmada artar (Play Store bunu şart koşar).
+`.github/workflows/android.yml` her push'ta testleri çalıştırır, ardından debug APK, release APK ve release AAB üretir. Çıktılar iş akışı sayfasındaki **Artifacts** bölümünden indirilir. `versionCode` 1540300 + çalıştırma numarasıdır, yani her çalıştırmada artar ve 1.54.02 sürümünün kodlarından (1540200 + numara) hep büyük kalır. Android Studio'daki yerel derleme 1540300 alır; aynı kodla Play'e ikinci kez yükleme yapılamayacağı için yerelden birden fazla sürüm yüklenecekse `android/app/build.gradle` içindeki varsayılan artırılmalı.
 
 Release çıktılarının imzalanması için şu repository secrets tanımlanmalı:
 
-| Secret | İçerik |
-| --- | --- |
-| `LINGO_KEYSTORE_BASE64` | `.jks` dosyasının base64 hali (`base64 -w0 lingo-upload.jks`) |
-| `LINGO_KEYSTORE_PASSWORD` | Keystore parolası |
-| `LINGO_KEY_ALIAS` | Anahtar adı |
-| `LINGO_KEY_PASSWORD` | Anahtar parolası |
+| Secret | Kabul edilen diğer adlar | İçerik |
+| --- | --- | --- |
+| `LINGO_KEYSTORE_BASE64` | `ANDROID_KEYSTORE_BASE64`, `KEYSTORE_BASE64` | `.jks` dosyasının base64 hali (`base64 -w0 lingo-upload.jks`) |
+| `LINGO_KEYSTORE_PASSWORD` | `ANDROID_KEYSTORE_PASSWORD`, `STORE_PASSWORD` | Keystore parolası |
+| `LINGO_KEY_ALIAS` | `ANDROID_KEY_ALIAS`, `KEY_ALIAS` | Anahtar adı |
+| `LINGO_KEY_PASSWORD` | `ANDROID_KEY_PASSWORD`, `KEY_PASSWORD` | Anahtar parolası (yoksa keystore parolası kullanılır) |
 
 Secrets yoksa release APK/AAB imzasız üretilir ve iş akışı bir uyarı verir.
 

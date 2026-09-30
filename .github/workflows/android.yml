@@ -3,11 +3,13 @@ name: Android
 # APK ve AAB derler. İmza anahtarı GitHub Secrets'ta tanımlıysa release çıktıları imzalanır,
 # tanımlı değilse imzasız üretilir (Android Studio'da ya da elle imzalanabilir).
 #
-# Gerekli secrets (Settings > Secrets and variables > Actions):
-#   LINGO_KEYSTORE_BASE64    .jks dosyasının base64 hali
-#   LINGO_KEYSTORE_PASSWORD  keystore parolası
-#   LINGO_KEY_ALIAS          anahtar adı (ör. lingo-upload)
-#   LINGO_KEY_PASSWORD       anahtar parolası
+# İmza secrets (Settings > Secrets and variables > Actions). Her satırdaki adlardan
+# hangisi tanımlıysa o kullanılır:
+#   LINGO_KEYSTORE_BASE64   | ANDROID_KEYSTORE_BASE64   | KEYSTORE_BASE64   .jks dosyasının base64 hali
+#   LINGO_KEYSTORE_PASSWORD | ANDROID_KEYSTORE_PASSWORD | STORE_PASSWORD    keystore parolası
+#   LINGO_KEY_ALIAS         | ANDROID_KEY_ALIAS         | KEY_ALIAS         anahtar adı
+#   LINGO_KEY_PASSWORD      | ANDROID_KEY_PASSWORD      | KEY_PASSWORD      anahtar parolası
+#                                                         (yoksa keystore parolası)
 
 on:
   push:
@@ -24,8 +26,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      LINGO_VERSION_CODE: ${{ github.run_number }}
     steps:
       - uses: actions/checkout@v5
 
@@ -58,22 +58,25 @@ jobs:
           npm run build:web
           npx cap sync android
 
-      - name: Sürüm adı
-        run: echo "LINGO_VERSION_NAME=$(sed -n "s/^def defaultVersionName = '\(.*\)'/\1/p" android/app/build.gradle)" >> "$GITHUB_ENV"
+      - name: Sürüm adı ve kodu
+        run: |
+          # 1.54.02 sürümü 1540200 + derleme numarasıyla yayımlandı; yeni kodlar hep ondan büyük olur.
+          echo "LINGO_VERSION_CODE=$((1540300 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+          echo "LINGO_VERSION_NAME=$(sed -n "s/^def defaultVersionName = '\(.*\)'/\1/p" android/app/build.gradle)" >> "$GITHUB_ENV"
 
       - name: İmza anahtarını hazırla
         env:
-          KEYSTORE_BASE64: ${{ secrets.LINGO_KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.LINGO_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.LINGO_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.LINGO_KEY_PASSWORD }}
+          KEYSTORE_BASE64: ${{ secrets.LINGO_KEYSTORE_BASE64 || secrets.ANDROID_KEYSTORE_BASE64 || secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.LINGO_KEYSTORE_PASSWORD || secrets.ANDROID_KEYSTORE_PASSWORD || secrets.STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.LINGO_KEY_ALIAS || secrets.ANDROID_KEY_ALIAS || secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.LINGO_KEY_PASSWORD || secrets.ANDROID_KEY_PASSWORD || secrets.KEY_PASSWORD || secrets.STORE_PASSWORD }}
         run: |
           if [ -z "$KEYSTORE_BASE64" ]; then
             echo "::warning::İmza secrets tanımlı değil; release APK/AAB imzasız üretilecek."
             echo "LINGO_SIGNED=false" >> "$GITHUB_ENV"
             exit 0
           fi
-          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/lingo-upload.jks"
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/lingo-upload.jks"
           {
             echo "LINGO_KEYSTORE_FILE=$RUNNER_TEMP/lingo-upload.jks"
             echo "LINGO_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
@@ -102,7 +105,14 @@ jobs:
           if [ "$LINGO_SIGNED" = "true" ]; then SUFFIX=release; else SUFFIX=release-unsigned; fi
           cp android/app/build/outputs/apk/release/app-release*.apk "dist/lingo-$LINGO_VERSION_NAME-$SUFFIX.apk"
           cp android/app/build/outputs/bundle/release/app-release.aab "dist/lingo-$LINGO_VERSION_NAME-$SUFFIX.aab"
+          (cd dist && sha256sum *.apk *.aab > SHA256SUMS.txt)
           ls -la dist
+          {
+            echo "### Lingo $LINGO_VERSION_NAME"
+            echo ""
+            echo "- Sürüm kodu: $LINGO_VERSION_CODE"
+            echo "- İmzalı: $LINGO_SIGNED"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
         with:

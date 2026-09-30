@@ -57,7 +57,7 @@ Takıldığında ampul simgesine basıp bir harf açtırabilirsin. İpucu 4. tah
 
 **Puan ve ilerleme.** Kelimeyi ne kadar erken ve hızlı bulursan o kadar çok puan alırsın; uzun kelimeler daha fazla puan getirir. Üst üste kazandığın günler seriyi uzatır, seri de puanı katlar. Topladığın XP ile seviye ve lig (Bronz, Gümüş, Altın, Platin, Elmas) yükselir.
 
-**Verilerin.** Seri, istatistikler ve yarım kalan oyunlar yalnızca senin cihazında saklanır. Hesap açmak gerekmez. Skor tablosuna katılırsan sunucuya yalnızca oyuncu adın, cihazına özel rastgele bir kimlik ve günün kelimesindeki tahminlerin gönderilir; e-posta, konum ya da başka bir kişisel bilgi toplanmaz. Android uygulaması internet bağlantısı olmadan da çalışır.
+**Verilerin.** Seri, istatistikler ve yarım kalan oyunlar yalnızca senin cihazında saklanır. Hesap açmak gerekmez. Skor tablosuna katılırsan sunucuya yalnızca oyuncu adın, cihazına özel rastgele bir kimlik ve günün kelimesindeki tahminlerin gönderilir; e-posta, konum ya da başka bir kişisel bilgi toplanmaz. Android uygulaması internet bağlantısı olmadan da çalışır. Ayrıntılar [gizlilik politikasında](privacy-policy.html).
 
 ## Ekran görüntüleri
 
